@@ -1,0 +1,24 @@
+{
+  "format_version": "1.13.0",
+  "minecraft:ore_feature": {
+    "description": {
+      "identifier": "strata:volcanic_province_rock_feature"
+    },
+    "count": 12,
+    "discard_chance_on_air_exposure": 0.25,
+    "replace_rules": [
+      {
+        "places_block": "strata:basalt",
+        "may_replace": [
+          "minecraft:stone"
+        ]
+      },
+      {
+        "places_block": "strata:andesite",
+        "may_replace": [
+          "minecraft:deepslate"
+        ]
+      }
+    ]
+  }
+}

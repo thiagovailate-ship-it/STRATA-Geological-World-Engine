@@ -1,0 +1,50 @@
+{
+  "format_version": "1.26.50",
+  "minecraft:biome": {
+    "description": {
+      "identifier": "strata:carbonate_platform"
+    },
+    "components": {
+      "minecraft:climate": {
+        "temperature": 1.0,
+        "downfall": 0.05,
+        "snow_accumulation": [
+          0.0,
+          0.0
+        ]
+      },
+      "minecraft:surface_builder": {
+        "builder": {
+          "type": "minecraft:overworld",
+          "sea_floor_depth": 7,
+          "sea_floor_material": "minecraft:gravel",
+          "foundation_material": "strata:limestone",
+          "mid_material": "strata:shale",
+          "top_material": "strata:limestone",
+          "sea_material": "minecraft:water"
+        }
+      },
+      "minecraft:replace_biomes": {
+        "replacements": [
+          {
+            "dimension": "minecraft:overworld",
+            "targets": [
+              "desert"
+            ],
+            "amount": 0.1,
+            "noise_frequency_scale": 28
+          }
+        ]
+      },
+      "minecraft:tags": {
+        "tags": [
+          "overworld",
+          "monster",
+          "no_legacy_worldgen",
+          "strata:carbonate",
+          "desert"
+        ]
+      }
+    }
+  }
+}

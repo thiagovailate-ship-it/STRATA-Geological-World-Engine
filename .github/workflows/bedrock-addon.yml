@@ -1,0 +1,51 @@
+name: Bedrock 1.26.52 add-on
+
+on:
+  push:
+    paths:
+      - 'bedrock/**'
+      - 'src/main/resources/assets/strata/textures/blocks/**'
+      - 'tools/package_bedrock_addon.py'
+      - 'tools/validate_bedrock_addon.py'
+      - '.github/workflows/bedrock-addon.yml'
+  pull_request:
+    paths:
+      - 'bedrock/**'
+      - 'src/main/resources/assets/strata/textures/blocks/**'
+      - 'tools/package_bedrock_addon.py'
+      - 'tools/validate_bedrock_addon.py'
+      - '.github/workflows/bedrock-addon.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Validate and package native add-on
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Validate Bedrock pack sources and build .mcaddon
+        run: |
+          python3 --version
+          python3 tools/validate_bedrock_addon.py
+          python3 tools/package_bedrock_addon.py
+          python3 tools/validate_bedrock_addon.py --archive build/bedrock/STRATA-Geological-World-Engine-Bedrock-1.26.52.mcaddon
+          cmp build/bedrock/STRATA-Geological-World-Engine-Bedrock-1.26.52.mcaddon bedrock/releases/STRATA-Geological-World-Engine-Bedrock-1.26.52.mcaddon
+
+      - name: Upload the Bedrock add-on
+        uses: actions/upload-artifact@v7
+        with:
+          name: STRATA-Bedrock-1.26.52
+          path: build/bedrock/STRATA-Geological-World-Engine-Bedrock-1.26.52.mcaddon
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,20 @@
+{
+  "format_version": "1.21.130",
+  "minecraft:client_biome": {
+    "description": {
+      "identifier": "strata:rift_valley"
+    },
+    "components": {
+      "minecraft:water_appearance": {
+        "surface_color": "#688C8B",
+        "surface_opacity": 0.65
+      },
+      "minecraft:grass_appearance": {
+        "color": "#A9A06B"
+      },
+      "minecraft:foliage_appearance": {
+        "color": "#91864F"
+      }
+    }
+  }
+}

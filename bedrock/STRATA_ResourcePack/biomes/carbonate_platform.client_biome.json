@@ -1,0 +1,20 @@
+{
+  "format_version": "1.21.130",
+  "minecraft:client_biome": {
+    "description": {
+      "identifier": "strata:carbonate_platform"
+    },
+    "components": {
+      "minecraft:water_appearance": {
+        "surface_color": "#6A9A9A",
+        "surface_opacity": 0.65
+      },
+      "minecraft:grass_appearance": {
+        "color": "#A8A979"
+      },
+      "minecraft:foliage_appearance": {
+        "color": "#92965C"
+      }
+    }
+  }
+}

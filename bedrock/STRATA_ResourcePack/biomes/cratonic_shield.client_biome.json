@@ -1,0 +1,20 @@
+{
+  "format_version": "1.21.130",
+  "minecraft:client_biome": {
+    "description": {
+      "identifier": "strata:cratonic_shield"
+    },
+    "components": {
+      "minecraft:water_appearance": {
+        "surface_color": "#4F8191",
+        "surface_opacity": 0.65
+      },
+      "minecraft:grass_appearance": {
+        "color": "#7D9D62"
+      },
+      "minecraft:foliage_appearance": {
+        "color": "#6E8D52"
+      }
+    }
+  }
+}

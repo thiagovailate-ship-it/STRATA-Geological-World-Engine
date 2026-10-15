@@ -1,0 +1,20 @@
+{
+  "format_version": "1.21.130",
+  "minecraft:client_biome": {
+    "description": {
+      "identifier": "strata:orogenic_uplands"
+    },
+    "components": {
+      "minecraft:water_appearance": {
+        "surface_color": "#5E8299",
+        "surface_opacity": 0.65
+      },
+      "minecraft:grass_appearance": {
+        "color": "#8EA875"
+      },
+      "minecraft:foliage_appearance": {
+        "color": "#78935F"
+      }
+    }
+  }
+}

@@ -5,6 +5,8 @@ run/
 bin/
 .gradle/
 *.class
+__pycache__/
+*.py[cod]
 *.orig
 *~
 

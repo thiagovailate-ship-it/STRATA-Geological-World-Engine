@@ -1,0 +1,44 @@
+{
+  "resource_pack_name": "strata_resources",
+  "texture_name": "atlas.terrain",
+  "padding": 8,
+  "num_mip_levels": 4,
+  "texture_data": {
+    "strata:rock_granite": {
+      "textures": "textures/blocks/rock_granite"
+    },
+    "strata:rock_basalt": {
+      "textures": "textures/blocks/rock_basalt"
+    },
+    "strata:rock_limestone": {
+      "textures": "textures/blocks/rock_limestone"
+    },
+    "strata:rock_sandstone": {
+      "textures": "textures/blocks/rock_sandstone"
+    },
+    "strata:rock_shale": {
+      "textures": "textures/blocks/rock_shale"
+    },
+    "strata:rock_marble": {
+      "textures": "textures/blocks/rock_marble"
+    },
+    "strata:rock_gneiss": {
+      "textures": "textures/blocks/rock_gneiss"
+    },
+    "strata:rock_schist": {
+      "textures": "textures/blocks/rock_schist"
+    },
+    "strata:rock_quartzite": {
+      "textures": "textures/blocks/rock_quartzite"
+    },
+    "strata:rock_slate": {
+      "textures": "textures/blocks/rock_slate"
+    },
+    "strata:rock_andesite": {
+      "textures": "textures/blocks/rock_andesite"
+    },
+    "strata:rock_conglomerate": {
+      "textures": "textures/blocks/rock_conglomerate"
+    }
+  }
+}

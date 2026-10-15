@@ -1,0 +1,14 @@
+pack.name=STRATA Geological World Engine — Bedrock
+pack.description=Geological rock materials and partial biome replacement for Bedrock 1.26.52.
+tile.strata:granite.name=Granite
+tile.strata:basalt.name=Basalt
+tile.strata:limestone.name=Limestone
+tile.strata:sandstone.name=Sandstone
+tile.strata:shale.name=Shale
+tile.strata:marble.name=Marble
+tile.strata:gneiss.name=Gneiss
+tile.strata:schist.name=Schist
+tile.strata:quartzite.name=Quartzite
+tile.strata:slate.name=Slate
+tile.strata:andesite.name=Andesite
+tile.strata:conglomerate.name=Conglomerate

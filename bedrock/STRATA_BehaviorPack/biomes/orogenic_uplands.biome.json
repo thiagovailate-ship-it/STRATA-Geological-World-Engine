@@ -1,0 +1,56 @@
+{
+  "format_version": "1.26.50",
+  "minecraft:biome": {
+    "description": {
+      "identifier": "strata:orogenic_uplands"
+    },
+    "components": {
+      "minecraft:climate": {
+        "temperature": 0.2,
+        "downfall": 0.6,
+        "snow_accumulation": [
+          0.0,
+          0.5
+        ]
+      },
+      "minecraft:surface_builder": {
+        "builder": {
+          "type": "minecraft:overworld",
+          "sea_floor_depth": 7,
+          "sea_floor_material": "minecraft:gravel",
+          "foundation_material": "strata:granite",
+          "mid_material": "strata:schist",
+          "top_material": "strata:gneiss",
+          "sea_material": "minecraft:water"
+        }
+      },
+      "minecraft:replace_biomes": {
+        "replacements": [
+          {
+            "dimension": "minecraft:overworld",
+            "targets": [
+              "stony_peaks",
+              "jagged_peaks",
+              "frozen_peaks",
+              "extreme_hills_mutated"
+            ],
+            "amount": 0.16,
+            "noise_frequency_scale": 28
+          }
+        ]
+      },
+      "minecraft:tags": {
+        "tags": [
+          "overworld",
+          "monster",
+          "no_legacy_worldgen",
+          "strata:orogenic",
+          "animal",
+          "mountains",
+          "frozen",
+          "extreme_hills"
+        ]
+      }
+    }
+  }
+}

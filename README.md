@@ -61,6 +61,31 @@ tools/stubcheck.sh     # compile the Forge layer against minimal MC/Forge API st
 tools/check-legacy-api.sh  # purity (core imports nothing from the game) + no post-1.7 APIs
 ```
 
+## Bedrock add-on (incremental port)
+
+[Download the prebuilt Bedrock 1.26.52 add-on](bedrock/releases/STRATA-Geological-World-Engine-Bedrock-1.26.52.mcaddon)
+(open the file in Bedrock to import both packs). It is a native behavior/resource
+pack—not a Forge jar recompiled for Bedrock. The first slice ports STRATA's
+twelve rock materials, eight partial biome replacements, and formation-themed
+underground rock features. Bedrock add-ons cannot replace the Overworld height
+generator, so plate-shaped terrain, drainage and erosion are not ported.
+
+To validate and rebuild the checked-in package with Python 3.9+:
+
+```bash
+python3 tools/validate_bedrock_addon.py
+python3 tools/package_bedrock_addon.py \
+  --output bedrock/releases/STRATA-Geological-World-Engine-Bedrock-1.26.52.mcaddon
+```
+
+An in-game Bedrock 1.26.52 smoke test is still outstanding. Partial biome
+replacement is documented as non-experimental since 1.21.110, though some
+creator tutorials still advise enabling Custom Biomes if a biome fails to
+render; verify on the target runtime. The dedicated Bedrock workflow also
+statically validates and uploads a `STRATA-Bedrock-1.26.52` artifact. See
+[`docs/BEDROCK_PORT.md`](docs/BEDROCK_PORT.md) for scope, install/testing
+steps, and limitations.
+
 ## Testing
 
 Ten automated suites are defined (see `docs/TESTING.md` for methods and
@@ -92,9 +117,11 @@ src/main/java/dev/strata/
   debug/         StrataLab headless renderer (ships in the jar, tiny)
 src/main/resources/  mcmod.info, en_US.lang, 12 procedural rock textures
 src/test/java/dev/strata/test/   suites A-J + TestRunner (no JUnit needed)
+bedrock/         native Bedrock behavior/resource pack source files
 tools/           build-core, run-tests, audit-terrain, run-lab, stubcheck,
-                 legacy guards, texture generator, API stubs
-docs/            ARCHITECTURE, ALGORITHMS, TESTING, VALIDATION, GEOGRAPHIC_AUDIT
+                 Bedrock packaging/validation, legacy guards, texture tools, API stubs
+docs/            ARCHITECTURE, ALGORITHMS, TESTING, VALIDATION,
+                 GEOGRAPHIC_AUDIT, BEDROCK_PORT
 ```
 
 ## License
