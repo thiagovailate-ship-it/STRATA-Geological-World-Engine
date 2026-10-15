@@ -1,0 +1,17 @@
+# STRATA build outputs and local run data (never commit generated artifacts)
+out/
+build/
+run/
+bin/
+.gradle/
+*.class
+*.orig
+*~
+
+# Gradle / IDE locals
+local.properties
+.idea/
+*.iml
+.classpath
+.project
+.settings/
