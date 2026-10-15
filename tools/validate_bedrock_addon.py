@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BP = ROOT / "bedrock" / "STRATA_BehaviorPack"
 RP = ROOT / "bedrock" / "STRATA_ResourcePack"
 EXPECTED_MIN_ENGINE = [1, 26, 52]
-EXPECTED_PACK_VERSION = [1, 1, 1]
+EXPECTED_PACK_VERSION = [1, 2, 0]
 EXPECTED_SCRIPT_API = "2.9.0"
 # Bedrock retains several legacy identifiers where Java uses newer display IDs.
 # This is the exact vanilla target set used by the first STRATA biome slice.

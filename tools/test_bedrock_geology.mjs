@@ -6,6 +6,8 @@ import {
   HYDRO_TILE_CELLS,
   MAX_SURFACE_Y,
   MIN_Y,
+  PLATE_CELL_SIZE,
+  classifyBoundaryMotion,
 } from "../bedrock/STRATA_BehaviorPack/scripts/geology_model.js";
 
 test("same world seed and absolute coordinates produce identical full columns", () => {
@@ -21,6 +23,57 @@ test("world seed affects the procedural geology", () => {
   const a = new GeologyModel("12345").sampleColumn(-273, 68);
   const b = new GeologyModel("54321").sampleColumn(-273, 68);
   assert.notDeepEqual(b, a);
+});
+
+test("plate-boundary regimes follow normal and tangential relative motion", () => {
+  const convergent = classifyBoundaryMotion(-1.2, 0);
+  assert.ok(convergent.convergent01 > 0.9);
+  assert.equal(convergent.divergent01, 0);
+  assert.equal(convergent.transform01, 0);
+  const divergent = classifyBoundaryMotion(1.2, 0);
+  assert.equal(divergent.convergent01, 0);
+  assert.ok(divergent.divergent01 > 0.9);
+  assert.equal(divergent.transform01, 0);
+  const transform = classifyBoundaryMotion(0, 1.2);
+  assert.equal(transform.convergent01, 0);
+  assert.equal(transform.divergent01, 0);
+  assert.ok(transform.transform01 > 0.9);
+});
+
+test("crust type is spatially coherent at plate scale", () => {
+  const model = new GeologyModel("12345");
+  const step = 256;
+  const grid = 32;
+  const lag = PLATE_CELL_SIZE / step;
+  const field = new Float32Array(grid * grid);
+  for (let j = 0; j < grid; j++) {
+    for (let i = 0; i < grid; i++) {
+      field[j * grid + i] = model.sampleTectonics(-4096 + i * step, -4096 + j * step).oceanicFraction;
+    }
+  }
+  const correlation = (dx, dz) => {
+    const a = [], b = [];
+    for (let j = 0; j < grid; j++) {
+      for (let i = 0; i < grid; i++) {
+        const nextX = i + dx, nextZ = j + dz;
+        if (nextX >= grid || nextZ >= grid) continue;
+        a.push(field[j * grid + i]);
+        b.push(field[nextZ * grid + nextX]);
+      }
+    }
+    const meanA = a.reduce((sum, value) => sum + value, 0) / a.length;
+    const meanB = b.reduce((sum, value) => sum + value, 0) / b.length;
+    let covariance = 0, varianceA = 0, varianceB = 0;
+    for (let i = 0; i < a.length; i++) {
+      const da = a[i] - meanA, db = b[i] - meanB;
+      covariance += da * db;
+      varianceA += da * da;
+      varianceB += db * db;
+    }
+    return covariance / Math.sqrt(varianceA * varianceB);
+  };
+  assert.ok(correlation(lag, 0) > 0.25, "east-west plate-scale crust correlation fell");
+  assert.ok(correlation(0, lag) > 0.25, "north-south plate-scale crust correlation fell");
 });
 
 test("D8 drainage outputs are deterministic across the 512-block tile seam", () => {

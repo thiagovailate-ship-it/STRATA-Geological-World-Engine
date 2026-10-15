@@ -2,6 +2,7 @@ import {
   GeologyModel,
   HYDRO_CELL_SIZE,
   HYDRO_TILE_CELLS,
+  PLATE_CELL_SIZE,
   SEA_LEVEL,
 } from "../bedrock/STRATA_BehaviorPack/scripts/geology_model.js";
 
@@ -17,6 +18,10 @@ let oceanColumns = 0;
 let riverColumns = 0;
 let lakeColumns = 0;
 let changedColumns = 0;
+let oceanicFractionSum = 0;
+let strongConvergentColumns = 0;
+let strongDivergentColumns = 0;
+let strongTransformColumns = 0;
 let absoluteDeltaSum = 0;
 let signedDeltaSum = 0;
 let maxAbsoluteDelta = 0;
@@ -58,6 +63,10 @@ for (let z = -sampleHalfExtent; z < sampleHalfExtent; z += sampleStep) {
     baseHeights.push(column.baseHeight);
     slopes.push(column.slope);
     formations[column.formation] = (formations[column.formation] ?? 0) + 1;
+    oceanicFractionSum += column.boundary.oceanicFraction;
+    if (column.boundary.convergent01 > 0.5) strongConvergentColumns++;
+    if (column.boundary.divergent01 > 0.5) strongDivergentColumns++;
+    if (column.boundary.transform01 > 0.5) strongTransformColumns++;
     if (column.finalHeight < SEA_LEVEL) oceanColumns++;
     if (column.river01 > 0.45) riverColumns++;
     if (column.lake01 > 0.45) lakeColumns++;
@@ -102,6 +111,50 @@ function summarizeContinuity(stats) {
   };
 }
 
+const crustStep = 256;
+const crustGrid = 32;
+const plateLagCells = PLATE_CELL_SIZE / crustStep;
+const crustField = new Float32Array(crustGrid * crustGrid);
+const crustModel = new GeologyModel(seed);
+let crustFractionSum = 0;
+for (let j = 0; j < crustGrid; j++) {
+  for (let i = 0; i < crustGrid; i++) {
+    const tectonics = crustModel.sampleTectonics(
+      -4096 + i * crustStep,
+      -4096 + j * crustStep,
+    );
+    const index = j * crustGrid + i;
+    crustField[index] = tectonics.oceanicFraction;
+    crustFractionSum += tectonics.oceanicFraction;
+  }
+}
+function crustCorrelation(dx, dz) {
+  let count = 0, sumA = 0, sumB = 0;
+  for (let j = 0; j < crustGrid; j++) {
+    for (let i = 0; i < crustGrid; i++) {
+      const nextX = i + dx, nextZ = j + dz;
+      if (nextX >= crustGrid || nextZ >= crustGrid) continue;
+      sumA += crustField[j * crustGrid + i];
+      sumB += crustField[nextZ * crustGrid + nextX];
+      count++;
+    }
+  }
+  const meanA = sumA / count, meanB = sumB / count;
+  let covariance = 0, varianceA = 0, varianceB = 0;
+  for (let j = 0; j < crustGrid; j++) {
+    for (let i = 0; i < crustGrid; i++) {
+      const nextX = i + dx, nextZ = j + dz;
+      if (nextX >= crustGrid || nextZ >= crustGrid) continue;
+      const a = crustField[j * crustGrid + i] - meanA;
+      const b = crustField[nextZ * crustGrid + nextX] - meanB;
+      covariance += a * b;
+      varianceA += a * a;
+      varianceB += b * b;
+    }
+  }
+  return covariance / Math.sqrt(varianceA * varianceB);
+}
+
 sorted(heights);
 sorted(baseHeights);
 sorted(slopes);
@@ -141,6 +194,24 @@ const output = {
       meanAbsoluteHeightDelta: round(absoluteDeltaSum / count),
       meanSignedHeightDelta: round(signedDeltaSum / count),
       maxAbsoluteHeightDelta: maxAbsoluteDelta,
+    },
+  },
+  tectonicStructure: {
+    localWindowMeanOceanicFraction: round(oceanicFractionSum / count),
+    strongBoundaryRegimePercent: {
+      convergent: round(100 * strongConvergentColumns / count),
+      divergent: round(100 * strongDivergentColumns / count),
+      transform: round(100 * strongTransformColumns / count),
+    },
+    crustFieldSpatialCoherence: {
+      widthBlocks: crustGrid * crustStep,
+      sampleStepBlocks: crustStep,
+      plateCellLagBlocks: PLATE_CELL_SIZE,
+      meanOceanicFraction: round(crustFractionSum / crustField.length),
+      correlationAtPlateCellLag: {
+        x: round(crustCorrelation(plateLagCells, 0)),
+        z: round(crustCorrelation(0, plateLagCells)),
+      },
     },
   },
   hydrologyTileContinuity: {

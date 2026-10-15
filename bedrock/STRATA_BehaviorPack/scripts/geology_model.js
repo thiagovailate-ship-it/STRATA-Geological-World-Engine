@@ -17,7 +17,12 @@ export const HYDRO_TILE_CELLS = 64;
 export const HYDRO_RADIUS_CELLS = 12;
 
 const SEARCH_RADIUS = 1;
-const OCEANIC_PLATE_FRACTION = 0.70;
+// Plate crust types follow a broad, spatially coherent continental field rather
+// than independent random assignments to neighboring cells.
+const PLATE_CRUST_WAVELENGTH = 8000;
+const CONTINENTAL_CRUST_THRESHOLD = 0.10;
+const PLATE_ROTATION_RANGE = 0.0004;
+const CONTINENTAL_FIELD_WAVELENGTH = 6000;
 // Calibrated on the documented seed-12345 audit window so the projected
 // ocean/land share is close to Earth's observed global surface split.
 const CONTINENTAL_OFFSET = -0.40;
@@ -35,6 +40,7 @@ const SALT = Object.freeze({
   plateCenter: 0x1a7e,
   plateType: 0x0be5,
   plateMotion: 0xf00d,
+  plateRotation: 0x0a71,
   plateBase: 0x8a5e,
   warpX: 0x9a401,
   warpZ: 0x9a402,
@@ -84,6 +90,23 @@ export function smoothstep(edge0, edge1, value) {
 
 export function smoothstepDown(edgeHigh, edgeLow, value) {
   return 1 - smoothstep(edgeLow, edgeHigh, value);
+}
+
+/**
+ * Classify a plate boundary from relative motion in its local frame.
+ * Positive normal velocity means separation; negative means convergence.
+ * Velocities are normalized to the model's reference relative speed (3 units).
+ */
+export function classifyBoundaryMotion(normalVelocity, tangentialVelocity, proximity = 1) {
+  const normalRate = clamp(normalVelocity / 3, -1, 1);
+  const shearRate = clamp(Math.abs(tangentialVelocity) / 3, 0, 1);
+  const boundaryProximity = clamp01(proximity);
+  return {
+    convergent01: smoothstep(0.06, 0.32, -normalRate) * boundaryProximity,
+    divergent01: smoothstep(0.06, 0.32, normalRate) * boundaryProximity,
+    transform01: smoothstep(0.05, 0.28, shearRate)
+      * smoothstepDown(0.35, 0.08, Math.abs(normalRate)) * boundaryProximity,
+  };
 }
 
 function mix32(input) {
@@ -239,6 +262,39 @@ export class GeologyModel {
     this.seed = seedToUint32(worldSeed);
     this.hydroTiles = new Map();
     this.baseCache = new Map();
+    this.plateCache = new Map();
+  }
+
+  plateProperties(cellX, cellZ, centerX, centerZ) {
+    const key = pairKey(cellX, cellZ);
+    const cached = this.plateCache.get(key);
+    if (cached) {
+      this.plateCache.delete(key);
+      this.plateCache.set(key, cached);
+      return cached;
+    }
+
+    const crustSignal = fbm(
+      this.seed, centerX / PLATE_CRUST_WAVELENGTH, centerZ / PLATE_CRUST_WAVELENGTH,
+      4, 2, 0.5, SALT.continent,
+    );
+    const oceanic = crustSignal < CONTINENTAL_CRUST_THRESHOLD;
+    const baseUnit = unit(hashCell(this.seed, cellX, cellZ, SALT.plateBase));
+    const angle = unit(hashCell(this.seed, cellX, cellZ, SALT.plateMotion)) * Math.PI * 2;
+    const speedUnit = unit(hashCell(this.seed, cellX, -cellZ - 1, SALT.plateMotion));
+    const angularVelocity = (unit(hashCell(this.seed, cellX, cellZ, SALT.plateRotation)) - 0.5)
+      * PLATE_ROTATION_RANGE;
+    const properties = {
+      oceanic,
+      plateBase: oceanic ? -(4 + baseUnit * 10) : (baseUnit - 0.5) * 12,
+      plateBias: oceanic ? -0.55 : 0.55,
+      angle,
+      speed: 0.5 + speedUnit,
+      angularVelocity,
+    };
+    this.plateCache.set(key, properties);
+    if (this.plateCache.size > 512) this.plateCache.delete(this.plateCache.keys().next().value);
+    return properties;
   }
 
   sampleTectonics(x, z) {
@@ -265,6 +321,7 @@ export class GeologyModel {
     let weightSqSum = 0;
     let biasSum = 0;
     let baseSum = 0;
+    let oceanicWeightSum = 0;
     let velocityXSum = 0;
     let velocityZSum = 0;
     let centerXSum = 0;
@@ -286,26 +343,26 @@ export class GeologyModel {
         const rz = centerZ - pz;
         const distanceSquared = rx * rx + rz * rz;
         const weight = 1 / (distanceSquared * distanceSquared + 1);
-        const oceanic = unit(hashCell(this.seed, cellX, cellZ, SALT.plateType)) < OCEANIC_PLATE_FRACTION;
-        const baseUnit = unit(hashCell(this.seed, cellX, cellZ, SALT.plateBase));
-        const plateBase = oceanic ? -(4 + baseUnit * 10) : (baseUnit - 0.5) * 12;
-        const angle = unit(hashCell(this.seed, cellX, cellZ, SALT.plateMotion)) * Math.PI * 2;
-        const speedUnit = unit(hashCell(this.seed, cellX, -cellZ - 1, SALT.plateMotion));
-        const speed = 0.5 + speedUnit;
-        const velocityX = Math.cos(angle) * speed;
-        const velocityZ = Math.sin(angle) * speed;
+        const plate = this.plateProperties(cellX, cellZ, centerX, centerZ);
+        // Rigid 2-D plate motion: translation plus rotation around the plate
+        // center, evaluated at the same sample point for every plate.
+        const velocityX = Math.cos(plate.angle) * plate.speed
+          + plate.angularVelocity * rz;
+        const velocityZ = Math.sin(plate.angle) * plate.speed
+          - plate.angularVelocity * rx;
         const distance = Math.sqrt(distanceSquared);
-        const plateBias = oceanic ? -0.55 : 0.55;
         const candidate = {
           cellX, cellZ, centerX, centerZ, distanceSquared, distance, weight,
-          oceanic, plateBase, plateBias, velocityX, velocityZ,
+          oceanic: plate.oceanic, plateBase: plate.plateBase,
+          plateBias: plate.plateBias, velocityX, velocityZ,
         };
         candidates.push(candidate);
 
         weightSum += weight;
         weightSqSum += weight * weight;
-        biasSum += weight * plateBias;
-        baseSum += weight * plateBase;
+        biasSum += weight * plate.plateBias;
+        baseSum += weight * plate.plateBase;
+        if (plate.oceanic) oceanicWeightSum += weight;
         velocityXSum += weight * velocityX;
         velocityZSum += weight * velocityZ;
         centerXSum += weight * rx;
@@ -363,9 +420,7 @@ export class GeologyModel {
 
     const classifyWidth = clamp(cellSize * 0.28, 120, 460);
     const proximity = clamp01(1 - edgeDistance / classifyWidth);
-    const convergent01 = smoothstep(0.06, 0.32, convergenceN) * proximity;
-    const divergent01 = smoothstep(0.06, 0.32, -convergenceN) * proximity;
-    const transform01 = smoothstep(0.05, 0.28, shearN) * proximity;
+    const motion = classifyBoundaryMotion(-3 * convergenceN, 3 * shearN, proximity);
     const edgeAxisX = second.centerX - nearest.centerX;
     const edgeAxisZ = second.centerZ - nearest.centerZ;
     const edgeAxisLength = Math.max(1, Math.hypot(edgeAxisX, edgeAxisZ));
@@ -378,10 +433,13 @@ export class GeologyModel {
       sideW: sideWeightSum > 0 ? sideWeighted / sideWeightSum : 0,
       plateBias: weightSum > 0 ? biasSum / weightSum : 0,
       plateBase: weightSum > 0 ? baseSum / weightSum : 0,
+      oceanicFraction: weightSum > 0 ? oceanicWeightSum / weightSum : Number(nearest.oceanic),
       boundary01: proximity,
-      convergent01,
-      divergent01,
-      transform01,
+      convergenceN,
+      shearN,
+      convergent01: motion.convergent01,
+      divergent01: motion.divergent01,
+      transform01: motion.transform01,
       oceanic1: nearest.oceanic,
       oceanic2: second.oceanic,
       plateId1: hashCell(this.seed, nearest.cellX, nearest.cellZ, SALT.plateType) & 0x7fffffff,
@@ -397,45 +455,64 @@ export class GeologyModel {
     if (cached) return cached;
 
     const boundary = this.sampleTectonics(x, z);
-    const continentNoise = fbm(this.seed, x / 2400, z / 2400, 3, 2.03, 0.5, SALT.continent);
-    const continent = boundary.plateBias + continentNoise * 1.25 + CONTINENTAL_OFFSET;
+    const oceanicFraction = clamp01(boundary.oceanicFraction);
+    const continentalFraction = 1 - oceanicFraction;
+    const continentNoise = fbm(
+      this.seed, x / CONTINENTAL_FIELD_WAVELENGTH, z / CONTINENTAL_FIELD_WAVELENGTH,
+      4, 2, 0.5, SALT.continent,
+    );
+    const continent = boundary.plateBias + continentNoise * 0.90 + CONTINENTAL_OFFSET;
     const sea = SEA_LEVEL;
 
     const depth01 = clamp01(-continent / 1.2);
     let oceanHeight = sea - 6 - 26 * depth01;
     oceanHeight += fbm(this.seed, x / 420, z / 420, 2, 2, 0.5, SALT.abyss) * 4;
     if (boundary.divergent01 > 0.001) {
-      const ridgeGate = smoothstepDown(0.2, -0.4, continent);
       const ridge = Math.exp(-((boundary.edgeDistance / RIDGE_WIDTH) ** 2));
-      oceanHeight += 16 * ridge * boundary.divergent01 * ridgeGate;
+      oceanHeight += 16 * ridge * boundary.divergent01 * oceanicFraction;
     }
 
     const land01 = clamp01(continent / 1.2);
     let landHeight = sea + 3 + 24 * land01 + boundary.plateBase;
     landHeight += fbm(this.seed, x / 600, z / 600, 3, 2.02, 0.5, SALT.regional) * 13;
     if (boundary.divergent01 > 0.001) {
-      const riftGate = smoothstep(-0.2, 0.4, continent);
+      const continentalRift = boundary.divergent01 * continentalFraction;
       landHeight -= 22 * Math.exp(-((boundary.edgeDistance / RIFT_WIDTH) ** 2))
-        * boundary.divergent01 * riftGate;
+        * continentalRift;
       landHeight += 18 * Math.exp(-(((boundary.edgeDistance - 150) / 100) ** 2))
-        * boundary.divergent01 * riftGate;
+        * continentalRift;
     }
 
     let height = lerp(oceanHeight, landHeight, smoothstep(-0.08, 0.08, continent));
     let orogen = 0;
     if (boundary.convergent01 > 0.001) {
-      const continentalWidth = smoothstep(-0.3, 0.5, continent);
-      const effectiveWidth = RANGE_WIDTH * (1 + 0.25 * continentalWidth);
-      const profile = Math.exp(-((boundary.edgeDistance / effectiveWidth) ** 2));
-      const foothill = Math.exp(-((boundary.edgeDistance / FOOT_WIDTH) ** 2));
-      const maxHeight = 55 + 55 * smoothstep(-0.9, 0.5, continent);
+      const oceanicConvergence = boundary.convergent01 * oceanicFraction * oceanicFraction;
+      const subduction = boundary.convergent01 * 2 * oceanicFraction * continentalFraction;
+      const continentalCollision = boundary.convergent01
+        * continentalFraction * continentalFraction;
+      const continentalSide = smoothstep(-0.18, 0.18, boundary.plateBias);
+      const oceanicSide = 1 - continentalSide;
+      const collisionProfile = Math.exp(-((boundary.edgeDistance / (RANGE_WIDTH * 2.5)) ** 2));
+      const collisionFoot = Math.exp(-((boundary.edgeDistance / (FOOT_WIDTH * 1.4)) ** 2));
+      const collisionRelief = (78 + 24 * smoothstep(-0.4, 0.5, continent))
+        * collisionProfile * continentalCollision;
+      const collisionFoothills = 20 * collisionFoot * continentalCollision;
+      const continentalArc = 52
+        * Math.exp(-(((boundary.edgeDistance - 190) / 170) ** 2))
+        * subduction * continentalSide;
+      const islandArc = 34
+        * Math.exp(-(((boundary.edgeDistance - 170) / 140) ** 2))
+        * oceanicConvergence;
       const crestNoise = ridged(this.seed, x / 160, z / 160, 4, 2.05, 0.52, SALT.crest);
-      const peak = 0.45 + 0.55 * crestNoise;
-      orogen = maxHeight * profile * peak * boundary.convergent01
-        + maxHeight * 0.18 * foothill * boundary.convergent01;
-      const trench = Math.exp(-(((boundary.edgeDistance - 50) / TRENCH_WIDTH) ** 2));
-      const trenchDepth = 12 + 18 * smoothstepDown(0.3, -0.3, continent);
-      orogen -= trenchDepth * trench * boundary.convergent01;
+      const peak = 0.55 + 0.45 * crestNoise;
+      orogen = (collisionRelief + collisionFoothills + continentalArc + islandArc) * peak;
+
+      // Dense oceanic lithosphere descends at a trench; continent-continent
+      // collision instead broadens the mountain belt without an ocean trench.
+      const trench = Math.exp(-(((boundary.edgeDistance - 42) / 40) ** 2));
+      const trenchStrength = subduction * oceanicSide + 0.5 * oceanicConvergence;
+      const trenchDepth = 16 + 14 * smoothstepDown(0.3, -0.3, continent);
+      orogen -= trenchDepth * trench * trenchStrength;
       height += orogen;
     }
 

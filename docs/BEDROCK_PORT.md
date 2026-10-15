@@ -1,7 +1,7 @@
 # STRATA Bedrock port — native add-on and scripted geology dimension
 
 - **Target:** Minecraft Bedrock Edition 1.26.52
-- **Pack version:** 1.1.1
+- **Pack version:** 1.2.0
 - **Artifact:** `bedrock/releases/STRATA-Geological-World-Engine-Bedrock-1.26.52.mcaddon`
 - **Scope:** native behavior pack + resource pack; this is not a Java/Forge binary recompiled for Bedrock.
 

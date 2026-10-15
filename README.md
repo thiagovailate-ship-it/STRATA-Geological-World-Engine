@@ -92,8 +92,8 @@ references, algorithm details, measured model distributions and limits.
 
 Ten JVM automated suites are defined (see `docs/TESTING.md` for methods and
 thresholds, `docs/VALIDATION.md` for results, and `docs/GEOGRAPHIC_AUDIT.md`
-for the before/after measurements). The separate Bedrock script model has six
-Node tests, a hydrology seam audit and a reproducible distribution audit; see
+for the before/after measurements). The separate Bedrock script model has eight
+Node tests, a hydrology seam audit and reproducible geology audits; see
 `docs/BEDROCK_GEOLOGY.md`.
 
 | Suite | What it proves |
