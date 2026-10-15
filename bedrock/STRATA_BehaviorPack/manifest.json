@@ -2,12 +2,12 @@
   "format_version": 2,
   "header": {
     "name": "STRATA Geological World Engine — Behavior Pack",
-    "description": "Geological rock blocks, biome replacements, and formation-specific rock deposits for Bedrock 1.26.52.",
+    "description": "Geological rock blocks, partial biome replacements, and a seed-deterministic scripted geology dimension for Bedrock 1.26.52.",
     "uuid": "9eab965d-e225-4d43-bd1f-6dad069b2e15",
     "version": [
       1,
-      0,
-      0
+      1,
+      1
     ],
     "min_engine_version": [
       1,
@@ -21,9 +21,20 @@
       "uuid": "b1d9def5-0561-4e58-88fb-da48c79f7d84",
       "version": [
         1,
-        0,
-        0
+        1,
+        1
       ]
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "9277dde3-32fd-406f-b299-ecf8909b51c0",
+      "version": [
+        1,
+        1,
+        1
+      ],
+      "entry": "scripts/main.js"
     }
   ],
   "dependencies": [
@@ -31,9 +42,13 @@
       "uuid": "3b4654c4-3940-4535-984f-485be6487f76",
       "version": [
         1,
-        0,
-        0
+        1,
+        1
       ]
+    },
+    {
+      "module_name": "@minecraft/server",
+      "version": "2.9.0"
     }
   ]
 }

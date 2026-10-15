@@ -1,5 +1,6 @@
 pack.name=STRATA Geological World Engine — Bedrock
-pack.description=Geological rock materials and partial biome replacement for Bedrock 1.26.52.
+pack.description=Geological rock materials, partial biome replacement, and the optional STRATA scripted geology dimension for Bedrock 1.26.52.
+item.strata:geology_compass.name=STRATA Geological Compass
 tile.strata:granite.name=Granite
 tile.strata:basalt.name=Basalt
 tile.strata:limestone.name=Limestone

@@ -19,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[1]
 BP = ROOT / "bedrock" / "STRATA_BehaviorPack"
 RP = ROOT / "bedrock" / "STRATA_ResourcePack"
 EXPECTED_MIN_ENGINE = [1, 26, 52]
+EXPECTED_PACK_VERSION = [1, 1, 1]
+EXPECTED_SCRIPT_API = "2.9.0"
 # Bedrock retains several legacy identifiers where Java uses newer display IDs.
 # This is the exact vanilla target set used by the first STRATA biome slice.
 PORTED_BEDROCK_TARGETS = {
@@ -71,32 +73,48 @@ def validate_source() -> tuple[dict[str, Any], dict[str, Any], int]:
 
     require(bp_manifest.get("format_version") == 2, "behavior manifest format_version must be 2")
     require(rp_manifest.get("format_version") == 2, "resource manifest format_version must be 2")
-    manifests = (("behavior", bp_manifest, "data"), ("resource", rp_manifest, "resources"))
+    manifests = (("behavior", bp_manifest), ("resource", rp_manifest))
     seen_uuids: set[str] = set()
-    for label, manifest, module_type in manifests:
+    for label, manifest in manifests:
         header = manifest.get("header", {})
         require(isinstance(header, dict), f"{label} manifest header must be an object")
         require(bool(header.get("name")), f"{label} manifest name is missing")
         require(header.get("min_engine_version") == EXPECTED_MIN_ENGINE,
                 f"{label} manifest must target Minecraft 1.26.52")
-        require(header.get("version") == [1, 0, 0], f"{label} pack version must be [1, 0, 0]")
-        for uuid_value in [header.get("uuid"), *[m.get("uuid") for m in manifest.get("modules", [])]]:
+        require(header.get("version") == EXPECTED_PACK_VERSION,
+                f"{label} pack version must be {EXPECTED_PACK_VERSION}")
+        modules = manifest.get("modules", [])
+        require(isinstance(modules, list), f"{label} modules must be an array")
+        for uuid_value in [header.get("uuid"), *[m.get("uuid") for m in modules]]:
             require(isinstance(uuid_value, str) and UUID_RE.fullmatch(uuid_value) is not None,
                     f"{label} manifest contains an invalid UUID: {uuid_value!r}")
             normalized_uuid = uuid_value.lower()
             require(normalized_uuid not in seen_uuids, f"duplicate manifest UUID: {uuid_value}")
             seen_uuids.add(normalized_uuid)
-        modules = manifest.get("modules", [])
-        require(isinstance(modules, list) and len(modules) == 1,
-                f"{label} pack must contain exactly one module")
-        require(modules[0].get("type") == module_type,
-                f"{label} module type must be {module_type}")
+
+    bp_modules = bp_manifest.get("modules", [])
+    require(len(bp_modules) == 2, "behavior pack must contain one data and one script module")
+    bp_module_types = {module.get("type") for module in bp_modules}
+    require(bp_module_types == {"data", "script"},
+            "behavior pack modules must be exactly data and script")
+    script_module = next(module for module in bp_modules if module.get("type") == "script")
+    require(script_module.get("language") == "javascript", "script module language must be javascript")
+    script_entry = script_module.get("entry")
+    require(script_entry == "scripts/main.js", "script entry must be scripts/main.js")
+    require((BP / script_entry).is_file(), "behavior pack script entry file is missing")
+    rp_modules = rp_manifest.get("modules", [])
+    require(len(rp_modules) == 1 and rp_modules[0].get("type") == "resources",
+            "resource pack must contain exactly one resources module")
 
     bp_header = bp_manifest["header"]
     rp_header = rp_manifest["header"]
     dependencies = bp_manifest.get("dependencies", [])
-    require(dependencies == [{"uuid": rp_header["uuid"], "version": [1, 0, 0]}],
-            "behavior pack must depend on the matching resource pack UUID and version")
+    expected_dependencies = [
+        {"uuid": rp_header["uuid"], "version": EXPECTED_PACK_VERSION},
+        {"module_name": "@minecraft/server", "version": EXPECTED_SCRIPT_API},
+    ]
+    require(dependencies == expected_dependencies,
+            "behavior pack must depend on the matching resource pack and stable @minecraft/server 2.9.0")
 
     all_json = list(BP.rglob("*.json")) + list(RP.rglob("*.json"))
     for path in all_json:
@@ -152,6 +170,49 @@ def validate_source() -> tuple[dict[str, Any], dict[str, Any], int]:
         require(lang_key in language, f"missing localization entry for {identifier}")
 
     require(len(blocks) == 12, f"expected the twelve STRATA rock variants, found {len(blocks)}")
+
+    # The scripted dimension is entered through one custom, non-consuming item.
+    item_files = sorted((BP / "items").glob("*.json"))
+    require(len(item_files) == 1 and item_files[0].name == "geology_compass.json",
+            "behavior pack must define exactly the STRATA geology compass item")
+    item_data = load_json(item_files[0])
+    require(item_data.get("format_version") == "1.21.90",
+            "geology compass must use item format 1.21.90")
+    item_definition = item_data.get("minecraft:item", {})
+    item_id = item_definition.get("description", {}).get("identifier")
+    require(item_id == "strata:geology_compass", "geology compass identifier must be strata:geology_compass")
+    item_components = item_definition.get("components", {})
+    icon_key = item_components.get("minecraft:icon", {}).get("textures", {}).get("default")
+    require(icon_key == "strata:geology_compass", "geology compass icon must reference its resource atlas key")
+    require(item_components.get("minecraft:use_animation") == "spyglass"
+            and item_components.get("minecraft:max_stack_size") == 1,
+            "geology compass must be a single-stack usable item")
+    item_atlas = load_json(RP / "textures" / "item_texture.json")
+    item_textures = item_atlas.get("texture_data", {})
+    require(icon_key in item_textures, "geology compass icon key is not registered in the resource pack")
+    item_texture_path = item_textures[icon_key].get("textures")
+    require(isinstance(item_texture_path, str)
+            and (RP / f"{item_texture_path}.png").is_file(),
+            "geology compass atlas points to a missing item texture")
+    require("item.strata:geology_compass.name=" in language,
+            "missing geology compass localization entry")
+    script_text = (BP / "scripts" / "main.js").read_text(encoding="utf-8")
+    geology_script_text = (BP / "scripts" / "geology_model.js").read_text(encoding="utf-8")
+    require('from "@minecraft/server"' in script_text,
+            "Bedrock script entry must import the stable Minecraft server API")
+    require("registerCustomDimension" in script_text and "world.seed" in script_text,
+            "script must register its void dimension and derive terrain from the world seed")
+    require("getTopmostBlock" in script_text and "buildSpawnPlatform" in script_text,
+            "script must return players to a terrain-safe Overworld location and protect fallback geology spawns")
+    require("sampleColumnAsync" in geology_script_text and "buildHydroTileSteps" in geology_script_text,
+            "geology model must expose deterministic columns and time-sliced hydrology")
+    require(re.search(r"if\s*\(\(\+\+floodSteps\s*&\s*511\)\s*===\s*0\)\s*yield;",
+                      geology_script_text) is not None,
+            "hydrology flood-fill must yield periodically while visiting priority-queue cells")
+    require("flowOrder.sort" in geology_script_text
+            and "accumulation[next] += accumulation[current]" in geology_script_text
+            and "WALK_CAP" not in geology_script_text,
+            "hydrology must accumulate D8 contributing area in descending flow order without a path cap")
 
     # Validate all biome blocks, identifiers, surface references and replace rules.
     biome_files = sorted((BP / "biomes").glob("*.json"))
@@ -328,7 +389,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         bp_manifest, rp_manifest, json_count = validate_source()
-        print(f"PASS: manifests, {json_count} JSON files, 12 rock blocks, 8 biomes, 8 features/rules, and texture links")
+        print(f"PASS: manifests, {json_count} JSON files, 12 rock blocks, geology compass, scripted dimension/API link, 8 biomes, 8 features/rules, and texture links")
         if args.archive:
             size = validate_archive(args.archive.resolve(), bp_manifest, rp_manifest)
             print(f"PASS: .mcaddon import container and nested .mcpack archives ({size:,} bytes)")

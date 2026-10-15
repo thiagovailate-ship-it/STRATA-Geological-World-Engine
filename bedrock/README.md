@@ -4,7 +4,7 @@
 
 [Download STRATA for Bedrock 1.26.52](releases/STRATA-Geological-World-Engine-Bedrock-1.26.52.mcaddon)
 
-Open the `.mcaddon` file on a Bedrock device to import its behavior and resource packs. Create a **new** test world to check custom biome generation; see [`../docs/BEDROCK_PORT.md`](../docs/BEDROCK_PORT.md) for the port scope, experiment-toggle troubleshooting, validation status, and testing instructions.
+Open the `.mcaddon` file on a Bedrock device to import its behavior and resource packs. In a **new disposable test world**, enable both packs. In Creative, search for **STRATA Geological Compass** or use `/give @s strata:geology_compass` with cheats; use it from the Overworld to enter the optional scripted geology dimension and use it again there to return. The dimension does not replace Overworld terrain. See [`../docs/BEDROCK_GEOLOGY.md`](../docs/BEDROCK_GEOLOGY.md) for its algorithm and measured offline audit, and [`../docs/BEDROCK_PORT.md`](../docs/BEDROCK_PORT.md) for installation, API/experiment-toggle uncertainty, test steps and limitations.
 
 ## Rebuild
 

@@ -7,6 +7,9 @@ on:
       - 'src/main/resources/assets/strata/textures/blocks/**'
       - 'tools/package_bedrock_addon.py'
       - 'tools/validate_bedrock_addon.py'
+      - 'tools/check_bedrock_types.sh'
+      - 'tools/test_bedrock_geology.mjs'
+      - 'tools/audit_bedrock_geology.mjs'
       - '.github/workflows/bedrock-addon.yml'
   pull_request:
     paths:
@@ -14,6 +17,9 @@ on:
       - 'src/main/resources/assets/strata/textures/blocks/**'
       - 'tools/package_bedrock_addon.py'
       - 'tools/validate_bedrock_addon.py'
+      - 'tools/check_bedrock_types.sh'
+      - 'tools/test_bedrock_geology.mjs'
+      - 'tools/audit_bedrock_geology.mjs'
       - '.github/workflows/bedrock-addon.yml'
   workflow_dispatch:
 
@@ -26,13 +32,26 @@ concurrency:
 
 jobs:
   package:
-    name: Validate and package native add-on
+    name: Test, validate and package native add-on
     runs-on: ubuntu-22.04
     timeout-minutes: 10
 
     steps:
       - name: Check out source
         uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Test deterministic geology model
+        run: |
+          node --check bedrock/STRATA_BehaviorPack/scripts/geology_model.js
+          node --check bedrock/STRATA_BehaviorPack/scripts/main.js
+          node --experimental-default-type=module --test tools/test_bedrock_geology.mjs
+          node --experimental-default-type=module tools/audit_bedrock_geology.mjs
+          bash tools/check_bedrock_types.sh
 
       - name: Validate Bedrock pack sources and build .mcaddon
         run: |

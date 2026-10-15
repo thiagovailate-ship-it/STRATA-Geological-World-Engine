@@ -65,10 +65,12 @@ tools/check-legacy-api.sh  # purity (core imports nothing from the game) + no po
 
 [Download the prebuilt Bedrock 1.26.52 add-on](bedrock/releases/STRATA-Geological-World-Engine-Bedrock-1.26.52.mcaddon)
 (open the file in Bedrock to import both packs). It is a native behavior/resource
-pack—not a Forge jar recompiled for Bedrock. The first slice ports STRATA's
-twelve rock materials, eight partial biome replacements, and formation-themed
-underground rock features. Bedrock add-ons cannot replace the Overworld height
-generator, so plate-shaped terrain, drainage and erosion are not ported.
+pack—not a Forge jar recompiled for Bedrock. It ports twelve rock materials,
+eight partial Overworld biome replacements, formation-themed underground rock
+features, and an optional script-built `strata:geology` dimension accessed with
+the STRATA Geological Compass. Bedrock biome replacement still cannot replace
+the Overworld height generator; the scripted geology remains separate and does
+not modify vanilla terrain.
 
 To validate and rebuild the checked-in package with Python 3.9+:
 
@@ -78,19 +80,21 @@ python3 tools/package_bedrock_addon.py \
   --output bedrock/releases/STRATA-Geological-World-Engine-Bedrock-1.26.52.mcaddon
 ```
 
-An in-game Bedrock 1.26.52 smoke test is still outstanding. Partial biome
-replacement is documented as non-experimental since 1.21.110, though some
-creator tutorials still advise enabling Custom Biomes if a biome fails to
-render; verify on the target runtime. The dedicated Bedrock workflow also
-statically validates and uploads a `STRATA-Bedrock-1.26.52` artifact. See
-[`docs/BEDROCK_PORT.md`](docs/BEDROCK_PORT.md) for scope, install/testing
-steps, and limitations.
+An in-game Bedrock 1.26.52 smoke/performance test is still outstanding. The
+custom-dimension API guidance is inconsistent about the Beta APIs toggle, so
+runtime registration must be checked in a disposable world. The dedicated
+Bedrock workflow statically validates and uploads a `STRATA-Bedrock-1.26.52`
+artifact. See [`docs/BEDROCK_PORT.md`](docs/BEDROCK_PORT.md) for install and
+runtime testing, and [`docs/BEDROCK_GEOLOGY.md`](docs/BEDROCK_GEOLOGY.md) for
+references, algorithm details, measured model distributions and limits.
 
 ## Testing
 
-Ten automated suites are defined (see `docs/TESTING.md` for methods and
+Ten JVM automated suites are defined (see `docs/TESTING.md` for methods and
 thresholds, `docs/VALIDATION.md` for results, and `docs/GEOGRAPHIC_AUDIT.md`
-for the before/after measurements):
+for the before/after measurements). The separate Bedrock script model has six
+Node tests, a hydrology seam audit and a reproducible distribution audit; see
+`docs/BEDROCK_GEOLOGY.md`.
 
 | Suite | What it proves |
 |-------|----------------|
@@ -119,9 +123,10 @@ src/main/resources/  mcmod.info, en_US.lang, 12 procedural rock textures
 src/test/java/dev/strata/test/   suites A-J + TestRunner (no JUnit needed)
 bedrock/         native Bedrock behavior/resource pack source files
 tools/           build-core, run-tests, audit-terrain, run-lab, stubcheck,
-                 Bedrock packaging/validation, legacy guards, texture tools, API stubs
+                 Bedrock packaging/validation/type checks, legacy guards,
+                 texture tools, API stubs
 docs/            ARCHITECTURE, ALGORITHMS, TESTING, VALIDATION,
-                 GEOGRAPHIC_AUDIT, BEDROCK_PORT
+                 GEOGRAPHIC_AUDIT, BEDROCK_PORT, BEDROCK_GEOLOGY
 ```
 
 ## License

@@ -1,8 +1,9 @@
 # STRATA — Auditoria da coerência geográfica
 
-**Escopo:** auditoria determinística do caminho de geração existente; sem
+**Escopo:** auditoria determinística do caminho Forge/Java existente; sem
 novos sistemas de relevo. Os números são medições, não metas de realismo.
-Nenhum valor “ideal” foi presumido.
+Nenhum valor “ideal” foi presumido. A implementação Bedrock em dimensão
+separada tem algoritmo e métricas próprias em [`BEDROCK_GEOLOGY.md`](BEDROCK_GEOLOGY.md).
 
 ## 1. Caminho rastreado
 

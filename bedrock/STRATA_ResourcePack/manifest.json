@@ -2,12 +2,12 @@
   "format_version": 2,
   "header": {
     "name": "STRATA Geological World Engine — Resources",
-    "description": "Twelve STRATA geological rock textures and client biome visuals for Bedrock 1.26.52.",
+    "description": "STRATA rock textures, client biomes, and the geology compass icon for Bedrock 1.26.52.",
     "uuid": "3b4654c4-3940-4535-984f-485be6487f76",
     "version": [
       1,
-      0,
-      0
+      1,
+      1
     ],
     "min_engine_version": [
       1,
@@ -21,8 +21,8 @@
       "uuid": "a17b983c-074a-4e57-a4bc-cbd5f2778ab2",
       "version": [
         1,
-        0,
-        0
+        1,
+        1
       ]
     }
   ]
