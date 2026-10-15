@@ -45,12 +45,11 @@ jobs:
           grep -Fxq 'dev/strata/forge/StrataMod.class' build/strata-jar-contents.txt
 
       - name: Upload the compiled mod
-        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: STRATA-1.0.0
           path: build/libs/STRATA-1.0.0.jar
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 14
 
       - name: Run deterministic engine regression tests
