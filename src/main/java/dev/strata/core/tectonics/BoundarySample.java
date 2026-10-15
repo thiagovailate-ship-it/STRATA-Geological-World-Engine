@@ -19,9 +19,9 @@ public final class BoundarySample {
     public double f2;
     public double f3;
     /**
-     * Smooth side coordinate in [-1, +1]: -1 deep in plate 1, +1 deep in
-     * plate 2, 0 at the boundary. Symmetric inverse-distance weighting makes
-     * it seamless across F1/F2 swaps (see PlateField).
+     * Signed weighted blend of oriented bisectors in [-1, +1]. Pair
+     * orientation comes from stable lattice-center coordinates, rather than
+     * F-rank order; the field is symmetric over the 3x3 candidate stencil.
      */
     public double sideW;
     /** 1 exactly at a boundary, fading to 0 in plate interiors. */
@@ -35,9 +35,8 @@ public final class BoundarySample {
     /** Transform intensity in [0,1] (already distance-weighted). */
     public double transform01;
     /**
-     * Blended continent/ocean bias and base elevation from the three nearest
-     * plates (symmetric inverse-distance weights). THESE are what relief
-     * blends use — they cannot jump when the 2nd/3rd plates swap ranks.
+     * Blended continent/ocean bias and base elevation from all nine centers
+     * in the 3x3 search stencil (symmetric inverse-fourth-distance weights).
      */
     public double plateBias;
     public double plateBase;

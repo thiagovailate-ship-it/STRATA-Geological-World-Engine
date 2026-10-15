@@ -7,8 +7,8 @@ the overworld is built by simulated geology instead of vanilla noise:
 - **Drifting tectonic plates** (warped Voronoi field) with geometric
   convergent / divergent / transform classification — no random biome dice.
 - **Coupled relief**: collision orogens, island arcs, subduction trenches,
-  mid-ocean ridges, continental rifts and transform scarps, all continuous
-  across chunk borders by construction.
+  mid-ocean ridges, continental rifts and transform scarps, with deterministic
+  rank-swap and chunk-edge continuity diagnostics.
 - **Real drainage**: Priority-Flood depression filling + D8 flow + bounded
   confluence gives dendritic rivers, mountain tarns, lowland lakes and
   wetlands; rivers carve canyons and stop at the sea.
@@ -37,17 +37,24 @@ clamped by `StrataWorldConfig.validate()`.
 
 ## Building
 
-Full Forge build (needs network + JDK 8; wrapper pins Gradle 2.0):
+Full Forge build (needs network + JDK 8; wrapper pins Gradle 4.4.1 and the
+build uses the HTTPS-compatible ForgeGradle 1.2 fork):
 
 ```bash
 ./gradlew setupDecompWorkspace build   # -> build/libs/STRATA-1.0.0.jar
 ```
 
+GitHub Actions runs the core regression suite and the real Forge build on every
+push and pull request (`.github/workflows/forge-build.yml`). To build on demand,
+use **Actions → Forge 1.7.10 build → Run workflow**. Download the resulting
+`STRATA-1.0.0` artifact from the completed workflow run.
+
 Sandbox-safe checks that need no network (ECJ or javac, Java 8+ to run):
 
 ```bash
 tools/build-core.sh    # compile core engine + lab + tests (1.8 in sandbox; 1.7 bytecode in the Forge build)
-tools/run-tests.sh     # suites A-H: determinism, bounds, seams, coupling, perf
+tools/run-tests.sh     # suites A-J: determinism, bounds, seams, coupling, regressions
+tools/audit-terrain.sh # deterministic height/slope/continent/depression/edge statistics
 tools/run-lab.sh ...   # headless map/section renderer (PPM -> tools/ppm_to_png.py)
 tools/stubcheck.sh     # compile the Forge layer against minimal MC/Forge API stubs
 tools/check-legacy-api.sh  # purity (core imports nothing from the game) + no post-1.7 APIs
@@ -55,19 +62,22 @@ tools/check-legacy-api.sh  # purity (core imports nothing from the game) + no po
 
 ## Testing
 
-Eight automated suites, all passing (see `docs/TESTING.md` for methods and
-thresholds, `docs/VALIDATION.md` for the signed-off report):
+Ten automated suites are defined (see `docs/TESTING.md` for methods and
+thresholds, `docs/VALIDATION.md` for results, and `docs/GEOGRAPHIC_AUDIT.md`
+for the before/after measurements):
 
 | Suite | What it proves |
 |-------|----------------|
 | A Reproducibility | order-independent, bit-identical columns |
-| B Seed variation | seeds change terrain (~21 blocks mean) and biomes |
+| B Seed variation | seeds change terrain and biomes |
 | C Bounds | 20000 columns: heights, stacks, biomes, surfaces valid |
-| D Continuity | no chunk/tile seams (border-vs-interior distributions match) |
+| D Continuity | chunk/tile-edge versus interior step distributions |
 | E Numeric safety | far-field + hostile configs stay finite |
-| F Coupling | mountains sit on convergence, ridges above abyss |
+| F Coupling | tectonic regimes measurably affect relief |
 | G Integration | 1024 columns through the 1.7.10 chunk index math |
-| H Performance | ~1.6 ms/chunk contiguous, ~0.004 ms/column warm |
+| H Performance | cold/warm/contiguous timings and hydrology cache |
+| I Hydro coordinates | cell-center mapping is correct for negative and positive indices |
+| J Rank continuity | sampled tectonic rank swaps no longer create gross cliffs |
 
 ## Project layout
 
@@ -80,10 +90,10 @@ src/main/java/dev/strata/
   blocks/        the twelve-variant rock block + material translation
   debug/         StrataLab headless renderer (ships in the jar, tiny)
 src/main/resources/  mcmod.info, en_US.lang, 12 procedural rock textures
-src/test/java/dev/strata/test/   suites A-H + TestRunner (no JUnit needed)
-tools/           build-core, run-tests, run-lab, stubcheck, legacy guards,
-                 texture generator, API stubs (tools/stubcheck/stubs)
-docs/            ARCHITECTURE, ALGORITHMS, TESTING, VALIDATION
+src/test/java/dev/strata/test/   suites A-J + TestRunner (no JUnit needed)
+tools/           build-core, run-tests, audit-terrain, run-lab, stubcheck,
+                 legacy guards, texture generator, API stubs
+docs/            ARCHITECTURE, ALGORITHMS, TESTING, VALIDATION, GEOGRAPHIC_AUDIT
 ```
 
 ## License

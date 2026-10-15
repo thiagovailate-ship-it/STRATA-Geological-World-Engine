@@ -1,17 +1,19 @@
-// STRATA — Geological World Engine. Real Forge build (needs network + JDK 8):
+// STRATA — Geological World Engine. Forge build (JDK 8):
 //   ./gradlew setupDecompWorkspace build
-// Produces build/libs/STRATA-1.0.0.jar. Sandbox-safe checks that need no
-// network: tools/build-core.sh, tools/run-tests.sh, tools/stubcheck.sh.
+// Produces build/libs/STRATA-1.0.0.jar. ForgeGradle 1.2-1.1.1 is an HTTPS-safe
+// compatibility fork for Minecraft 1.7.10 and supports the Gradle 4.4.1
+// wrapper pinned in gradle/wrapper/gradle-wrapper.properties.
+// Offline/core checks: tools/build-core.sh, tools/run-tests.sh, tools/stubcheck.sh.
 buildscript {
     repositories {
         mavenCentral()
         maven {
             name = 'forge'
-            url = 'http://files.minecraftforge.net/maven'
+            url = 'https://maven.minecraftforge.net/'
         }
     }
     dependencies {
-        classpath 'net.minecraftforge.gradle:ForgeGradle:1.2-SNAPSHOT'
+        classpath 'com.anatawa12.forge:ForgeGradle:1.2-1.1.1'
     }
 }
 
@@ -32,6 +34,13 @@ minecraft {
 sourceCompatibility = targetCompatibility = "1.7"
 
 dependencies {
+}
+
+// The repository's A-J regression harness is a plain main() program, not JUnit.
+// It is run by tools/run-tests.sh (including in GitHub Actions); prevent Gradle's
+// default JUnit discovery from treating the harness classes as framework tests.
+test {
+    enabled = false
 }
 
 processResources {

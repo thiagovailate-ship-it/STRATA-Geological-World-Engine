@@ -91,7 +91,7 @@ order chunks generate in. Rules that make this true:
 
 - `core/StrataWorldModel.java` — the nine-stage pipeline.
 - `core/ColumnData.java` — the per-column contract + `sameAs`.
-- `core/tectonics/PlateField.java` — symmetric three-plate blends.
+- `core/tectonics/PlateField.java` — rank-stable full-stencil tectonic blends.
 - `core/hydrology/HydrologyModel.java` — Priority-Flood + D8.
 - `forge/StrataChunkProvider.java` — terrain + populate.
 - `forge/StrataWorldChunkManager.java` — biome answers.

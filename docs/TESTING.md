@@ -1,6 +1,6 @@
 # STRATA Testing
 
-## Suites A–H (`tools/run-tests.sh`, `TestRunner`)
+## Suites A–J (`tools/run-tests.sh`, `TestRunner`)
 
 | # | Suite | Method | Thresholds |
 |---|-------|--------|-----------|
@@ -11,11 +11,45 @@
 | E | Numeric safety | far-field coords + hostile configs (0/negative/huge) | all finite, heights valid |
 | F | Coupling | convergent-land vs stable-land vs ocean mean heights; ridge vs abyss | conv > stable + 15, ocean < stable, ridge > abyss |
 | G | Integration | 1024 columns through `(x*16+z)*256+y` + biome index math | exact layout |
-| H | Performance | cold/warm/contiguous timings + cache stats | report only (budgets in VALIDATION) |
+| H | Performance | cold/warm/contiguous timings + cache stats | cold <4 ms/column; warm <1 ms/column; chunk <120 ms |
+| I | Hydrology coordinates | cell-center mapping for positive/negative grid indices | exact at centers/midpoints; invalid size rejected |
+| J | Tectonic rank continuity | fixed-seed F1/F2 and F3/F4 rank-swap probes | no gross height/continent/regime discontinuity |
 
-Run: `tools/run-tests.sh` (builds core, runs legacy guards, runs A–H,
-~90 s in this sandbox). Full log: `out/test-output.txt`. No JUnit: the
-runner is a plain `main` with explicit asserts so it works anywhere.
+Run: `tools/run-tests.sh` (builds core, runs legacy guards, runs A–J,
+about 160 s in this sandbox). Full log: `out/test-output.txt`. No JUnit:
+the runner is a plain `main` with explicit asserts so it works anywhere.
+
+## GitHub Actions build
+
+`.github/workflows/forge-build.yml` runs on pushes, pull requests, or manually
+from **Actions → Forge 1.7.10 build → Run workflow**. It selects Temurin JDK 8,
+runs the A–J suite, then performs the real `setupDecompWorkspace build` against
+Minecraft 1.7.10 / Forge 10.13.4.1614. The resulting
+`build/libs/STRATA-1.0.0.jar` is uploaded as the `STRATA-1.0.0` artifact for 14
+days. The Gradle `test` task is disabled because these tests are a standalone
+`main()` harness rather than JUnit tests; Actions runs them explicitly through
+`tools/run-tests.sh`.
+
+## Deterministic terrain audit (`tools/audit-terrain.sh`)
+
+This is a measurement tool, not a pass/fail realism score. Example:
+
+```bash
+tools/audit-terrain.sh 12345 0 0 2048 4 out/before.csv
+tools/audit-terrain.sh 12345 0 0 2048 4 out/after.csv out/before.csv
+# Large spatial window without expensive edge-pair sampling:
+tools/audit-terrain.sh 12345 0 0 8192 16 --stats-only
+```
+
+It reports height quantiles/histogram, sea bands, slope categories, connected
+components of `C>=0` and final land, enclosed (island-like) land components,
+hydrology pit/lake components, strong-orogen components, and exact 1-block
+pairs across chunk/tile borders with matched interior controls. Component
+counts are 4-neighbour measurements at the stated sample spacing; area is
+estimated as `cells*step^2`. `--stats-only` is useful for a broad spatial
+census; use a local window without that flag for exact border measurements.
+An optional CSV compare reports same-coordinate deltas. The measured run is
+summarized in `GEOGRAPHIC_AUDIT.md`.
 
 ## Static guards
 
@@ -46,20 +80,19 @@ wet/pit %, plate count; formation/biome/boundary histograms follow.
 Convert: `python3 tools/ppm_to_png.py in.ppm out.png`.
 
 Reading the maps: categorical maps (plates/boundary/formation) show
-sharp Voronoi edges BY DESIGN (argmax flips at boundaries); relief uses
-the underlying continuous intensities, so elevation/hydro must show no
-straight seams. Suspect anything ruler-straight in elevation/hydro that
-does not match a boundary lineament (scarps and ridges ARE straight over
-kilometres — that is geology, not a bug). Lakes render cyan in hydro
-mode; below-sea carved channels render drowned-blue (fjords/estuaries).
+sharp Voronoi edges BY DESIGN (argmax flips at boundaries). Relief/hydrology
+should be continuous at chunk/tile borders; use the audit's border-vs-control
+statistics rather than judging a visual line alone. Ridge/scarp lineaments
+can follow tectonic boundaries. Lakes render cyan in hydro mode; below-sea
+carved channels render drowned-blue (fjords/estuaries).
 
 ## What "pass" does not cover
 
-- The Forge build was never linked against real 1.7.10/Forge jars here
-  (artifacts unreachable from this sandbox): `gradle build` on a
-  connected machine with JDK 8 is still required, then an in-game smoke
-  test (create STRATA world, fly, check F3 biomes, `/locate Stronghold`,
-  eyes of ender, village/mineshaft presence, no chunk errors in log).
+- The real Forge build could not be linked against 1.7.10/Forge jars in this
+  sandbox. The GitHub Actions build above is configured to do that on a JDK 8
+  runner, but until it passes the real link is not verified. An in-game smoke
+  test is still required (create a STRATA world, fly, check F3 biomes,
+  `/locate Stronghold`, eyes of ender, village/mineshaft presence, and logs).
 - Gameplay balance (ore rates, river width, mountain frequency) is tuned
   by map inspection only; expect one balance pass after playtesting.
 - Performance H was measured on a 2-core sandbox JVM, not a gaming rig.

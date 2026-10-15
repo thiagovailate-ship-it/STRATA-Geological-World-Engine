@@ -1,7 +1,7 @@
 package dev.strata.test;
 
 /**
- * Runs the STRATA suite (Tests A-H). Exit code 0 = all green.
+ * Runs the STRATA suite (Tests A-J). Exit code 0 = all green.
  * {@code --smoke} runs a fast pipeline subset (used for jar verification).
  */
 public final class TestRunner {
@@ -67,6 +67,18 @@ public final class TestRunner {
         passed += runOne("H Performance      ", new Runnable() {
             public void run() {
                 PerfTest.run();
+            }
+        }) ? 1 : 0;
+        failed += lastFailed;
+        passed += runOne("I Hydro coordinates", new Runnable() {
+            public void run() {
+                HydrologyGridAlignmentTest.run();
+            }
+        }) ? 1 : 0;
+        failed += lastFailed;
+        passed += runOne("J Tectonic rank continuity", new Runnable() {
+            public void run() {
+                TectonicRankContinuityTest.run();
             }
         }) ? 1 : 0;
         failed += lastFailed;

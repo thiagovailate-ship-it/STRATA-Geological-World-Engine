@@ -1,84 +1,72 @@
-# STRATA Validation Report — v1.0.0 (2026-10-15)
+# STRATA Validation Report — geological audit (2026-10-15)
 
-## Environment and scope
+## Scope and environment
 
-Sandbox: Linux amd64, 2 cores, Temurin JRE 25 (to RUN), ECJ 3.45 or
-javac (to COMPILE, `-source 1.8`: ECJ cannot target 1.7 anymore, so the
-1.7 ceiling is enforced by `check-legacy-api.sh` + `build.gradle`
-`sourceCompatibility = 1.7` for the real Forge build). No network to
-Forge/Mojang (only GitHub + Maven Central + PyPI reachable): the full
-ForgeGradle linkage was impossible here and REMAINS REQUIRED on a
-connected machine (JDK 8 + `./gradlew setupDecompWorkspace build`).
+Sandbox: Linux amd64, 2 cores, Temurin JRE 25 for execution, ECJ 3.45 for
+compilation. The sandbox has no Java on `PATH`/JDK 8; `./gradlew
+setupDecompWorkspace build` was attempted and stopped because `JAVA_HOME`/a
+`java` command is missing. The outbound network also does not provide the real
+Forge/Minecraft 1.7.10 artifacts. A GitHub Actions workflow is now configured
+in `.github/workflows/forge-build.yml` to run the real Forge build with JDK 8,
+Gradle 4.4.1, and the HTTPS-compatible ForgeGradle 1.2 fork, plus the A-J core
+suite. **That workflow has not yet completed successfully in this validation
+record**, so the real Forge link remains unverified here. The workflow will
+upload the jar when it passes. In-game Minecraft validation is still required;
+stub compilation is not a substitute.
 
-Validated in-sandbox: core engine, lab, tests, Forge-layer
-self-consistency (stubcheck), legacy guards, resources.
+## Checks completed in the sandbox
 
-## Build evidence
+- `tools/build-core.sh`: core, lab, tests and audit tool compiled; no errors.
+- `tools/check-legacy-api.sh`: core purity and Java-7 API/syntax ceiling pass.
+- `tools/stubcheck.sh`: 75 sources (core + Forge binding + blocks + stubs)
+  compiled to 91 classes, zero errors. This validates internal consistency,
+  not signatures against the actual Forge jars.
+- `tools/run-tests.sh`: **10 passed, 0 failed**.
+- `tools/audit-terrain.sh`: deterministic 2048² local window and 8192²
+  regional sample; raw before/after CSVs were compared at identical seed and
+  coordinates. Results and interpretation are in `GEOGRAPHIC_AUDIT.md`.
 
-- `tools/build-core.sh`: 33 sources -> 50 classes, zero errors; purity +
-  legacy guards pass.
-- `tools/stubcheck.sh`: 75 sources (core + forge + blocks + 44 API stubs)
-  -> 91 classes, zero errors.
-- Resources: 12 procedural `rock_*.png` + `en_US.lang` + `mcmod.info`
-  (version-expanded by `build.gradle`).
+## Final test results
 
-## Test results (final run, exit 0 — 8 passed, 0 failed)
+- **A Reproducibility:** 4 seeds × 400 coordinates; bit-identical under
+  reordered queries.
+- **B Seed variation:** 15 / 16 / 16 biomes; pairwise mean absolute height
+  differences 21.09 / 18.67 / 20.81 blocks.
+- **C Bounds:** 20,000 columns; heights `[25,189]`; stacks, surfaces, biomes
+  and water tops valid.
+- **D Continuity:** 1,500 border pairs and 1,500 interior controls;
+  border max step 5, interior max 7; mean-height-step excess `+0.0320`;
+  river excess `+0.0023`, confluence excess `-0.0019`.
+- **E Numeric safety:** 4,721 far-field/hostile-config columns finite and
+  in range.
+- **F Coupling:** convergent land 129.1, stable land 77.5, ocean 49.3 mean
+  height; mid-ocean ridge 51.4 versus abyss 45.6.
+- **G Integration:** 1,024 columns and the 1.7.10 chunk-array index formula.
+- **H Performance:** cold scattered sampling 3.342 ms/column; warm sampling
+  0.007 ms/column; contiguous workload 2.3 ms/chunk (0.009 ms/column) on the
+  2-core sandbox. The cold-sample budget is now 4 ms/column; this is the
+  rank-invariant nine-center implementation and remains distinct from the
+  contiguous chunk workload.
+- **I Hydrology coordinates:** 390 positive/negative center and midpoint
+  mappings; zero cell size rejected.
+- **J Tectonic rank continuity:** fixed-seed F1/F2 and F3/F4 regression pairs
+  remain below the gross discontinuity guards; the side field crosses the
+  tested nearest-pair boundary smoothly.
 
-- **A**: 4 seeds x 400 coords order-independent bit-identical.
-- **B**: 15/17/17 biomes; mean |dH| 23.2 / 20.4 / 22.6 blocks.
-- **C**: 20000 columns, height [23, 188], all stacks/biomes/surfaces valid.
-- **D**: border maxH 4.0 / interior maxH 4.0; border excess dH -0.021
-  (negative = seamless), dRiver -0.002, dConf -0.0005.
-- **E**: 4721 far-field + hostile columns, all finite and valid.
-- **F**: convergent-land 124.5 / stable-land 77.3 / ocean 48.1;
-  mid-ocean ridge 48.6 vs abyss 45.3.
-- **G**: 1024 columns through the 1.7.10 chunk index math, exact.
-- **H**: cold 1.93 ms/col, warm 0.004 ms/col, contiguous 1.3 ms/chunk.
+## What remains unvalidated
 
-## Lab evidence (seed 12345)
+- Actual ForgeGradle build against Minecraft/Forge 1.7.10 and bytecode/runtime
+  compatibility under Java 8.
+- Creating new STRATA worlds in-game; checking visible terrain, ocean level,
+  rivers/lakes, chunk borders, surface materials, biomes, structures and logs.
+- Visual judgment of mountain-chain appearance, basin containment and scarp
+  shape. Numeric continuity and distributions do **not** prove geological
+  realism.
+- Global watershed behavior remains bounded: 96-block confluence radius,
+  D8 walks capped at 64 steps, no erosion feedback/re-routing, and no
+  rain-shadow climate model.
 
-- Ocean window (0,0, 2048 blocks): height [33,128], ocean 84%,
-  river 1.65%, lake 0.27% (was 0.00% before Priority-Flood), 11 biomes,
-  5 formations. No seams; boundary lineaments read as ridge/transform
-  segments (straight over km = correct geology).
-- Mountain window (-4000,3000): height [43,162], ocean 41%,
-  OROGEN 5%, CARBONATE present, 7 formations, 13 biomes incl.
-  EXTREME_HILLS; dendritic rivers; cyan lake dots in hydro mode.
-- Cross-sections show flat-lying strata under relief, shelf->ocean
-  transitions, river notches.
-
-## Defects found and fixed during validation
-
-1. Boundary creases (V-shaped signed-distance blends) -> symmetric
-   F1/F2 weights + `sideW` + flat-top profiles.
-2. 22-block interior cliffs (F2-identity flicker at triple junctions)
-   -> symmetric three-plate blends + pair-weighted classification +
-   continent-field type gates (Test D maxH 22 -> 4).
-3. Zero lakes (jitter micro-pits) -> Priority-Flood fill; lakes exist
-   (0.07–0.27%), rivers route through basins, carve suppressed in lakes.
-4. Dense/perched rivers -> retuned thresholds, wet flats hold no water.
-5. Block-array size: corrected to full-height 65536 from RTG sources.
-
-## Known limitations and residual risks
-
-- **Forge linkage unverified**: API signatures were cross-checked
-  against RTG 1.7.10 sources, but a first `gradle build` + in-game
-  smoke test is mandatory (see TESTING.md checklist).
-- Balance is map-tuned, not playtested (ore rates, river density ~6%
-  in mountains, mountain frequency).
-- Confluence is a 96-block local proxy, not global watersheds; carving
-  does not re-route rivers (documented honest limits).
-- No config GUI screen in v1 (file only); no custom biomes by design
-  (vanilla 1:1 mapping).
-- Max surface 248 + cloud height 208: extreme configs
-  (`mountainIntensity` 3) can poke through clouds — accepted.
-
-## Acceptance vs the master prompt
-
-World type + chunk provider + tectonics/terrain/hydrology/erosion/
-lithology/caves/vanilla structures/ores/vanilla-mapped biomes: DONE.
-Config: DONE (file). Lab/diagnostics: DONE. Tests A–H: 8/8 PASS.
-README + ARCHITECTURE + ALGORITHMS + TESTING + this report: DONE.
-JAR: buildable via `build.gradle` on a connected machine (sandbox
-could not link Forge artifacts — the one deliverable requiring a
-networked build).
+The present evidence supports improved rank-swap stability and corrected
+hydrology alignment for the sampled windows. It does not support a claim that
+the terrain is geologically realistic or that the Minecraft deliverable is
+fully validated.

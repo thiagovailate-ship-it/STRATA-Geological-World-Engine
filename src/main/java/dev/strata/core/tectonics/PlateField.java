@@ -15,24 +15,27 @@ import dev.strata.core.util.ValueNoise2D;
  * Before lookup, the query point is warped by low-frequency noise, which bends
  * plate boundaries into organic curves without changing the topology.</p>
  *
- * <p>Boundary classification is geometric, not random: with {@code a} the unit
- * vector from center 1 to center k and {@code v1, vk} the plate velocities,
- * {@code conv = (v1-vk).a} measures approach speed (positive = converging)
- * and the perpendicular remainder measures shear (transform motion).</p>
+ * <p>Boundary classification is geometric, not random: for each plate pair,
+ * relative velocity projected onto the inter-center axis measures approach
+ * speed (positive = converging); the perpendicular component measures shear.
+ * The current field blends these pair contributions symmetrically.</p>
  *
- * <p>Continuity design (the subtle part): the 2nd/3rd plates swap ranks along
- * order-2 Voronoi lines, so anything that reads "plate 2's" identity alone
- * would jump there — most visibly near triple junctions. Every relief-driving
- * quantity is therefore a <em>symmetric blend</em>: per-plate properties use
- * inverse-distance weights over all three plates, and classification blends
- * the (1,2) and (1,3) pairs by their edge proximity. At a rank swap the
- * weights are equal, so blends are exactly continuous. Only the diagnostic
- * nearest-pair fields (strike, axis, plate-2 identity) may change off
- * boundaries — and relief never reads them.</p>
+ * <p>Continuity design (the subtle part): truncating a weighted field at F3
+ * leaves F3 with nonzero weight but drops F4 at a rank swap. Plate properties
+ * therefore blend over all nine centers in the 3x3 search stencil. Relative
+ * motion uses symmetric weighted pair covariances, evaluated algebraically
+ * over the same stencil; these regional sums do not depend on F-rank order
+ * while the stencil is fixed. The signed fault-side field blends all oriented
+ * pair bisectors, rather than using a signless sorted-distance ratio or one
+ * rank-dependent pair. Diagnostic nearest-pair fields (strike,
+ * axis and plate identity) remain rank-dependent.</p>
  *
  * <p>Thread-safe: immutable after construction.</p>
  */
 public final class PlateField {
+
+    /** Matches the transform-scarp ramp width used by ElevationModel. */
+    private static final double SIDE_SCALE = 60.0;
 
     private final long seed;
     private final StrataWorldConfig cfg;
@@ -91,6 +94,23 @@ public final class PlateField {
         double c2cz = 0.0;
         double c3cx = 0.0;
         double c3cz = 0.0;
+        double biasWeightSum = 0.0;
+        double biasWeightedSum = 0.0;
+        double baseWeightedSum = 0.0;
+        double weightSum = 0.0;
+        double weightSqSum = 0.0;
+        double velocityXSum = 0.0;
+        double velocityZSum = 0.0;
+        double centerXSum = 0.0;
+        double centerZSum = 0.0;
+        double velocityDotCenterSum = 0.0;
+        double velocitySqSum = 0.0;
+        double centerSqSum = 0.0;
+        double[] candidateDistance = new double[9];
+        double[] candidateCenterX = new double[9];
+        double[] candidateCenterZ = new double[9];
+        double[] candidateWeight = new double[9];
+        int candidateCount = 0;
 
         for (int dz = -1; dz <= 1; dz++) {
             for (int dx = -1; dx <= 1; dx++) {
@@ -104,6 +124,36 @@ public final class PlateField {
                 double ddx = px - cx;
                 double ddz = pz - cz;
                 double d2 = ddx * ddx + ddz * ddz;
+                // Blend plate lithosphere properties over every center in the
+                // search stencil, not only F1/F2/F3. Truncating at F3 makes
+                // the field jump when F3/F4 exchange rank (their weights are
+                // still nonzero at the cutoff).
+                double d4 = d2 * d2;
+                double propertyWeight = 1.0 / (d4 + 1.0);
+                boolean oceanic = isOceanic(gx, gz);
+                biasWeightSum += propertyWeight;
+                biasWeightedSum += propertyWeight * plateBias(gx, gz, oceanic);
+                baseWeightedSum += propertyWeight * plateBase(gx, gz, oceanic);
+                double angle = velAngle(gx, gz);
+                double speed = velSpeed(gx, gz);
+                double vx = Math.cos(angle) * speed;
+                double vz = Math.sin(angle) * speed;
+                double rx = cx - px;
+                double rz = cz - pz;
+                weightSum += propertyWeight;
+                weightSqSum += propertyWeight * propertyWeight;
+                velocityXSum += propertyWeight * vx;
+                velocityZSum += propertyWeight * vz;
+                centerXSum += propertyWeight * rx;
+                centerZSum += propertyWeight * rz;
+                velocityDotCenterSum += propertyWeight * (vx * rx + vz * rz);
+                velocitySqSum += propertyWeight * (vx * vx + vz * vz);
+                centerSqSum += propertyWeight * (rx * rx + rz * rz);
+                candidateDistance[candidateCount] = Math.sqrt(d2);
+                candidateCenterX[candidateCount] = cx;
+                candidateCenterZ[candidateCount] = cz;
+                candidateWeight[candidateCount] = propertyWeight;
+                candidateCount++;
                 if (d2 < best1) {
                     best3 = best2;
                     c3x = c2x;
@@ -146,17 +196,6 @@ public final class PlateField {
         double f3 = Math.sqrt(best3);
         double edge = (f2 - f1) * 0.5;
 
-        // Smooth side coordinate from symmetric inverse-distance weights
-        // (power 4): sharp provinces, no crease at the boundary, invariant
-        // under F1/F2 swaps. Relief blends MUST use this (or edge-based
-        // flat-top profiles), never the V-shaped signed distance.
-        double q1 = f1 * f1;
-        double q2 = f2 * f2;
-        q1 *= q1;
-        q2 *= q2;
-        double qden = q1 + q2;
-        double sideW = qden > 0.0 ? (q1 - q2) / qden : 0.0;
-
         // 3. Inter-center axis (across) and strike (along). Centers of distinct
         // cells always differ (jitter stays inside its cell), so dist12 > 0.
         double ax = c2cx - c1cx;
@@ -169,48 +208,79 @@ public final class PlateField {
         az /= dist12;
         double signed = (px - c1cx) * ax + (pz - c1cz) * az - dist12 * 0.5;
 
-        // 4. Plate properties from cell hashes (deterministic provinces).
+        // 4. Plate properties for nearest-pair diagnostics.
         boolean oc1 = isOceanic(c1x, c1z);
         boolean oc2 = isOceanic(c2x, c2z);
-        boolean oc3 = isOceanic(c3x, c3z);
-        double v1x = velX(c1x, c1z);
-        double v1z = velZ(c1x, c1z);
-        double v2x = velX(c2x, c2z);
-        double v2z = velZ(c2x, c2z);
-        double v3x = velX(c3x, c3z);
-        double v3z = velZ(c3x, c3z);
-        double b1s = plateBias(c1x, c1z, oc1);
-        double b2s = plateBias(c2x, c2z, oc2);
-        double b3s = plateBias(c3x, c3z, oc3);
-        double e1 = plateBase(c1x, c1z, oc1);
-        double e2 = plateBase(c2x, c2z, oc2);
-        double e3 = plateBase(c3x, c3z, oc3);
+        // 5. Smooth plate-property blends over the full search stencil. The
+        // prior F1/F2/F3 truncation gave F3 a nonzero weight but dropped F4,
+        // creating a step whenever F3/F4 swapped ranks.
+        double blendBias = biasWeightSum > 0.0 ? biasWeightedSum / biasWeightSum : 0.0;
+        double blendBase = biasWeightSum > 0.0 ? baseWeightedSum / biasWeightSum : 0.0;
 
-        // 5. Symmetric three-plate property blends (rank-swap continuous).
-        double i1 = 1.0 / (q1 + 1.0);
-        double q3 = f3 * f3;
-        q3 *= q3;
-        double i2 = 1.0 / (q2 + 1.0);
-        double i3 = 1.0 / (q3 + 1.0);
-        double isum = i1 + i2 + i3;
-        double w1 = i1 / isum;
-        double w2 = i2 / isum;
-        double w3 = i3 / isum;
-        double blendBias = w1 * b1s + w2 * b2s + w3 * b3s;
-        double blendBase = w1 * e1 + w2 * e2 + w3 * e3;
+        // 6. Relative motion from weighted pair covariances accumulated in
+        // the 3x3 scan. The symmetric identities equal the all-unordered-pair
+        // sums at O(9) cost. Centers are relative to the warped query to avoid
+        // cancellation at large Minecraft coordinates.
+        double pairWeightSum = 0.5 * (weightSum * weightSum - weightSqSum);
+        double centerVariance = weightSum * centerSqSum
+                - centerXSum * centerXSum - centerZSum * centerZSum;
+        double velocityVariance = weightSum * velocitySqSum
+                - velocityXSum * velocityXSum - velocityZSum * velocityZSum;
+        if (centerVariance < 0.0) {
+            centerVariance = 0.0;
+        }
+        if (velocityVariance < 0.0) {
+            velocityVariance = 0.0;
+        }
+        double meanPairDistance = pairWeightSum > 0.0
+                ? Math.sqrt(centerVariance / pairWeightSum) : 0.0;
+        double covariance = velocityXSum * centerXSum + velocityZSum * centerZSum
+                - weightSum * velocityDotCenterSum;
+        double convN = pairWeightSum > 0.0 && meanPairDistance > 0.0
+                ? covariance / (pairWeightSum * meanPairDistance * 3.0) : 0.0;
+        double relativeSpeedSq = pairWeightSum > 0.0
+                ? velocityVariance / pairWeightSum : 0.0;
+        double shearSq = relativeSpeedSq / 9.0 - convN * convN;
+        if (shearSq < 0.0) {
+            shearSq = 0.0;
+        }
+        double shearN = Math.sqrt(shearSq);
 
-        // 6. Relative motion classification, blended over pairs (1,2)+(1,3).
-        // Pair weights are flat-top in pair-edge proximity; at an F2/F3 rank
-        // swap the pairs exchange equal weights, so the blend is continuous.
-        double conv12 = pairConv(v1x, v1z, v2x, v2z, c1cx, c1cz, c2cx, c2cz);
-        double conv13 = pairConv(v1x, v1z, v3x, v3z, c1cx, c1cz, c3cx, c3cz);
-        double shear12 = pairShear(v1x, v1z, v2x, v2z, c1cx, c1cz, c2cx, c2cz);
-        double shear13 = pairShear(v1x, v1z, v3x, v3z, c1cx, c1cz, c3cx, c3cz);
-        double p12 = Math.exp(-MathUtil.sq(((f2 - f1) * 0.5) / 220.0));
-        double p13 = Math.exp(-MathUtil.sq(((f3 - f1) * 0.5) / 220.0));
-        double psum = p12 + p13 + 1e-9;
-        double convN = (p12 * conv12 + p13 * conv13) / psum;
-        double shearN = (p12 * shear12 + p13 * shear13) / psum;
+        // Signed side field: symmetric sum over all unordered pairs, with
+        // pair orientation fixed by lattice-center coordinates. This avoids
+        // both the signless F1/F2 distance ratio and a nearest-pair switch at
+        // F2/F3 rank boundaries.
+        double sideWeighted = 0.0;
+        double sideWeightSum = 0.0;
+        for (int i = 0; i < candidateCount; i++) {
+            for (int j = i + 1; j < candidateCount; j++) {
+                double pairEdge = Math.abs(candidateDistance[j] - candidateDistance[i]) * 0.5;
+                double proximity = Math.exp(-MathUtil.sq(pairEdge / 220.0));
+                double weight = candidateWeight[i] * candidateWeight[j] * proximity;
+                if (!(weight > 0.0)) {
+                    continue;
+                }
+                double axisX = candidateCenterX[j] - candidateCenterX[i];
+                double axisZ = candidateCenterZ[j] - candidateCenterZ[i];
+                double axisLength = Math.sqrt(axisX * axisX + axisZ * axisZ);
+                if (!(axisLength > 0.0)) {
+                    continue;
+                }
+                axisX /= axisLength;
+                axisZ /= axisLength;
+                double signedSide = (px - (candidateCenterX[i] + candidateCenterX[j]) * 0.5)
+                        * axisX + (pz - (candidateCenterZ[i] + candidateCenterZ[j]) * 0.5)
+                        * axisZ;
+                if (candidateCenterX[i] > candidateCenterX[j]
+                        || (candidateCenterX[i] == candidateCenterX[j]
+                        && candidateCenterZ[i] > candidateCenterZ[j])) {
+                    signedSide = -signedSide;
+                }
+                sideWeighted += weight * MathUtil.clamp(signedSide / SIDE_SCALE, -1.0, 1.0);
+                sideWeightSum += weight;
+            }
+        }
+        double sideW = sideWeightSum > 0.0 ? sideWeighted / sideWeightSum : 0.0;
 
         double prox = MathUtil.clamp01(1.0 - edge / classifyWidth);
         double convI = MathUtil.smoothstep(0.06, 0.32, convN) * prox;
@@ -256,40 +326,6 @@ public final class PlateField {
         out.plateBase2 = plateBase(c2x, c2z, oc2);
     }
 
-    /**
-     * Normalized approach speed of plate 1 toward plate k along their
-     * inter-center axis (positive = converging). Typical range O(-1..1).
-     */
-    private static double pairConv(double v1x, double v1z, double vkx, double vkz,
-                                   double c1x, double c1z, double ckx, double ckz) {
-        double ax = ckx - c1x;
-        double az = ckz - c1z;
-        double len = Math.sqrt(ax * ax + az * az);
-        if (!(len > 0.0)) {
-            return 0.0;
-        }
-        return ((v1x - vkx) * ax + (v1z - vkz) * az) / (len * 3.0);
-    }
-
-    /** Normalized shear (transform) speed of pair (1,k). */
-    private static double pairShear(double v1x, double v1z, double vkx, double vkz,
-                                    double c1x, double c1z, double ckx, double ckz) {
-        double ax = ckx - c1x;
-        double az = ckz - c1z;
-        double len = Math.sqrt(ax * ax + az * az);
-        if (!(len > 0.0)) {
-            return 0.0;
-        }
-        ax /= len;
-        az /= len;
-        double relX = v1x - vkx;
-        double relZ = v1z - vkz;
-        double conv = relX * ax + relZ * az;
-        double px = relX - conv * ax;
-        double pz = relZ - conv * az;
-        return Math.sqrt(px * px + pz * pz) / 3.0;
-    }
-
     /** Stable plate identifier for debug coloring and provinces. */
     public int plateId(int cellX, int cellZ) {
         long h = SeedMixer.hashSalted(SeedMixer.SALT_PLATE_TYPE, seed, cellX * 73856093L, cellZ * 19349663L);
@@ -309,14 +345,6 @@ public final class PlateField {
     private double velSpeed(int cellX, int cellZ) {
         long h = SeedMixer.hashSalted(SeedMixer.SALT_PLATE_MOTION, seed, cellX, -cellZ - 1);
         return 0.5 + SeedMixer.toUnit(h);
-    }
-
-    private double velX(int cellX, int cellZ) {
-        return Math.cos(velAngle(cellX, cellZ)) * velSpeed(cellX, cellZ);
-    }
-
-    private double velZ(int cellX, int cellZ) {
-        return Math.sin(velAngle(cellX, cellZ)) * velSpeed(cellX, cellZ);
     }
 
     private double plateBase(int cellX, int cellZ, boolean oceanic) {

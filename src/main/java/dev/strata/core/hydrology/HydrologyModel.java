@@ -103,7 +103,18 @@ public final class HydrologyModel {
         return tiles.size();
     }
 
-    /** Samples drainage at a block coordinate (bilinear over cells). */
+    /**
+     * Converts a block coordinate to a fractional index for a field sampled at
+     * cell centers ({@code i * cellSize + cellSize / 2}).
+     */
+    public static double blockToCellCenterIndex(double coordinate, int cellSize) {
+        if (cellSize <= 0) {
+            throw new IllegalArgumentException("cellSize must be positive");
+        }
+        return coordinate / cellSize - 0.5;
+    }
+
+    /** Samples drainage at a block coordinate (bilinear over cell centers). */
     public void sample(double x, double z, HydroSample out) {
         if (!cfg.enableRivers) {
             out.confluence01 = 0.0;
@@ -114,8 +125,11 @@ public final class HydrologyModel {
             return;
         }
         int cell = cfg.hydroCellSize;
-        double fcx = x / cell;
-        double fcz = z / cell;
+        // buildTile stores grid values at cell centers, not cell corners.
+        // Subtract the half-cell phase before choosing bilinear neighbours;
+        // otherwise rivers/lakes are displaced by half a hydro cell.
+        double fcx = blockToCellCenterIndex(x, cell);
+        double fcz = blockToCellCenterIndex(z, cell);
         int ccx = (int) Math.floor(fcx);
         int ccz = (int) Math.floor(fcz);
         double fx = fcx - ccx;

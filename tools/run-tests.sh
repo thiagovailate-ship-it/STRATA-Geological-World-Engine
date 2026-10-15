@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds the core and runs the full STRATA test suite (Tests A-H) on the JVM.
+# Builds the core and runs the full STRATA test suite (Tests A-J) on the JVM.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 # shellcheck disable=SC1091

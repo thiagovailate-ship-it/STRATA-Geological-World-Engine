@@ -75,17 +75,15 @@ public final class ElevationModel {
     }
 
     /**
-     * Shared fault-scarp offset (blocks): a true smooth step across the
-     * boundary (-8 on the plate-1 side, +8 on the plate-2 side, ramped over
-     * ~60 blocks). The step sign comes from the smooth side coordinate gated
-     * by an edge ramp that is exactly 0 at the boundary, so the offset is
-     * continuous AND smooth there. Used both by the height formula and by the
-     * stratigraphy so rock layers lag the surface consistently.
+     * Shared fault-scarp offset (blocks), tapered from the boundary over
+     * {@value #SCARP_WIDTH} blocks and signed by the weighted oriented-pair
+     * side field. The field can approach zero at a boundary, so multiply it
+     * directly rather than taking its sign (which would introduce a step).
+     * Used by both relief and stratigraphy so layer lag matches the surface.
      */
     public static double scarpOffset(double edgeDistance, double sideW, double transform01) {
         double ramp = MathUtil.smoothstep(0.0, SCARP_WIDTH, edgeDistance);
-        double sign = sideW >= 0.0 ? 1.0 : -1.0;
-        return 8.0 * ramp * sign * transform01;
+        return 8.0 * ramp * MathUtil.clamp(sideW, -1.0, 1.0) * transform01;
     }
 
     /**
@@ -99,8 +97,8 @@ public final class ElevationModel {
         double edge = b.edgeDistance;
         int sea = cfg.seaLevel;
 
-        // --- Continent / ocean mask: symmetric three-plate bias blend (rank
-        // swap continuous — see PlateField), plus an independent low-frequency
+        // --- Continent / ocean mask: symmetric full-stencil plate-bias blend
+        // (rank-swap continuous while the 3x3 stencil is fixed), plus an independent low-frequency
         // field so coasts are organic and do NOT coincide with plate edges.
         double bias = b.plateBias;
         double wave = cfg.continentWavelength;
