@@ -54,6 +54,8 @@ jobs:
           retention-days: 14
 
       - name: Run deterministic engine regression tests
+        env:
+          STRATA_PERF_REPORT_ONLY: 'true'
         run: bash tools/run-tests.sh
 
       - name: Summarize core regression results

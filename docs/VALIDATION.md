@@ -5,14 +5,16 @@
 Sandbox: Linux amd64, 2 cores, Temurin JRE 25 for execution, ECJ 3.45 for
 compilation. The sandbox has no Java on `PATH`/JDK 8; `./gradlew
 setupDecompWorkspace build` was attempted and stopped because `JAVA_HOME`/a
-`java` command is missing. The outbound network also does not provide the real
-Forge/Minecraft 1.7.10 artifacts. A GitHub Actions workflow is now configured
-in `.github/workflows/forge-build.yml` to run the real Forge build with JDK 8,
-Gradle 4.4.1, and the HTTPS-compatible ForgeGradle 1.2 fork, plus the A-J core
-suite. **That workflow has not yet completed successfully in this validation
-record**, so the real Forge link remains unverified here. The workflow will
-upload the jar when it passes. In-game Minecraft validation is still required;
-stub compilation is not a substitute.
+`java` command is missing. The outbound network does not provide the real Forge/Minecraft 1.7.10
+artifacts, so the Forge build cannot run in this sandbox. GitHub Actions run
+`38717228117` successfully completed the real JDK 8 / Gradle 4.4.1 / ForgeGradle
+build, verified `STRATA-1.0.0.jar`, and uploaded it. That run's overall status
+was red only because Test H's local 4 ms cold-sampling budget measured
+5.871 ms/column on the hosted runner. The workflow now keeps reporting Test H's
+measurements but disables its hardware-dependent timing assertions on Actions;
+a confirming run of that adjustment is pending. The real Forge link is now
+verified, but in-game Minecraft validation is still required; stub compilation
+is not a substitute.
 
 ## Checks completed in the sandbox
 
@@ -55,8 +57,8 @@ stub compilation is not a substitute.
 
 ## What remains unvalidated
 
-- Actual ForgeGradle build against Minecraft/Forge 1.7.10 and bytecode/runtime
-  compatibility under Java 8.
+- Loading the built jar in Minecraft 1.7.10 under Java 8 and checking runtime
+  behavior.
 - Creating new STRATA worlds in-game; checking visible terrain, ocean level,
   rivers/lakes, chunk borders, surface materials, biomes, structures and logs.
 - Visual judgment of mountain-chain appearance, basin containment and scarp
