@@ -1,0 +1,14 @@
+[{
+  "modid": "strata",
+  "name": "STRATA Geological World Engine",
+  "description": "A plate-tectonics world generator for Minecraft 1.7.10: drifting plates raise mountain ranges and carve trenches, Priority-Flood drainage grows rivers and lakes, erosion and stratigraphy lay down twelve rock types. Pick the STRATA world type on world creation.",
+  "version": "${version}",
+  "mcversion": "${mcversion}",
+  "url": "",
+  "updateUrl": "",
+  "authorList": ["STRATA team"],
+  "credits": "Built with ForgeGradle; API cross-checked against RTG 1.7.10 (GPL, reference only — all STRATA code is original).",
+  "logoFile": "",
+  "screenshots": [],
+  "dependencies": []
+}]
