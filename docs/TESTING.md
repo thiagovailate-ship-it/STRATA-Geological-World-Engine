@@ -23,12 +23,14 @@ the runner is a plain `main` with explicit asserts so it works anywhere.
 
 `.github/workflows/forge-build.yml` runs on pushes, pull requests, or manually
 from **Actions → Forge 1.7.10 build → Run workflow**. It selects Temurin JDK 8,
-runs the A–J suite, then performs the real `setupDecompWorkspace build` against
-Minecraft 1.7.10 / Forge 10.13.4.1614. The resulting
-`build/libs/STRATA-1.0.0.jar` is uploaded as the `STRATA-1.0.0` artifact for 14
-days. The Gradle `test` task is disabled because these tests are a standalone
-`main()` harness rather than JUnit tests; Actions runs them explicitly through
-`tools/run-tests.sh`.
+performs the real `setupDecompWorkspace build` against Minecraft 1.7.10 / Forge
+10.13.4.1614, uploads `build/libs/STRATA-1.0.0.jar` as the `STRATA-1.0.0`
+artifact for 14 days, then runs the A–J suite. The build and artifact upload
+are intentionally before the tests, so a regression-test failure does not
+prevent retrieval of a successfully compiled jar. The Gradle `test` task is
+disabled because these tests are a standalone `main()` harness rather than
+JUnit tests; Actions runs them explicitly through `tools/run-tests.sh` and
+adds the tail of the output to the workflow summary.
 
 ## Deterministic terrain audit (`tools/audit-terrain.sh`)
 

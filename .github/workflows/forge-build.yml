@@ -20,10 +20,10 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up JDK 8
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v7
         with:
           distribution: temurin
           java-version: '8'
@@ -33,9 +33,6 @@ jobs:
         run: |
           java -version
           ./gradlew --version
-
-      - name: Run deterministic engine regression tests
-        run: bash tools/run-tests.sh
 
       - name: Build against Minecraft Forge 1.7.10
         run: ./gradlew --no-daemon --stacktrace setupDecompWorkspace build
@@ -48,9 +45,29 @@ jobs:
           grep -Fxq 'dev/strata/forge/StrataMod.class' build/strata-jar-contents.txt
 
       - name: Upload the compiled mod
-        uses: actions/upload-artifact@v4
+        if: always()
+        uses: actions/upload-artifact@v7
         with:
           name: STRATA-1.0.0
           path: build/libs/STRATA-1.0.0.jar
-          if-no-files-found: error
+          if-no-files-found: ignore
           retention-days: 14
+
+      - name: Run deterministic engine regression tests
+        run: bash tools/run-tests.sh
+
+      - name: Summarize core regression results
+        if: always()
+        run: |
+          if [ -f out/test-output.txt ]; then
+            {
+              echo '## Core regression test output'
+              echo '```text'
+              tail -n 80 out/test-output.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            if grep -q '^\[FAIL ' out/test-output.txt; then
+              failures="$(grep '^\[FAIL ' out/test-output.txt | tr '\n' ';')"
+              echo "::error title=Core regression tests failed::${failures}"
+            fi
+          fi
