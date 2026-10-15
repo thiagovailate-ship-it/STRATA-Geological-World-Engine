@@ -45,8 +45,9 @@ build uses the HTTPS-compatible ForgeGradle 1.2 fork):
 ```
 
 GitHub Actions runs the core regression suite and the real Forge build on every
-push and pull request (`.github/workflows/forge-build.yml`). To build on demand,
-use **Actions → Forge 1.7.10 build → Run workflow**. Download the resulting
+push and pull request (`.github/workflows/forge-build.yml`). Once this workflow
+is on the repository's default branch, you can also build on demand via
+**Actions → Forge 1.7.10 build → Run workflow**. Download the resulting
 `STRATA-1.0.0` artifact from the completed workflow run.
 
 Sandbox-safe checks that need no network (ECJ or javac, Java 8+ to run):

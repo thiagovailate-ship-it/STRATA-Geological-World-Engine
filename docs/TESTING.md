@@ -21,8 +21,9 @@ the runner is a plain `main` with explicit asserts so it works anywhere.
 
 ## GitHub Actions build
 
-`.github/workflows/forge-build.yml` runs on pushes, pull requests, or manually
-from **Actions → Forge 1.7.10 build → Run workflow**. It selects Temurin JDK 8,
+`.github/workflows/forge-build.yml` runs on pushes and pull requests; the
+manual **Actions → Forge 1.7.10 build → Run workflow** trigger is available once
+the workflow is present on the repository's default branch. It selects Temurin JDK 8,
 performs the real `setupDecompWorkspace build` against Minecraft 1.7.10 / Forge
 10.13.4.1614, uploads `build/libs/STRATA-1.0.0.jar` as the `STRATA-1.0.0`
 artifact for 14 days, then runs the A–J suite. The build and artifact upload
@@ -92,13 +93,13 @@ carved channels render drowned-blue (fjords/estuaries).
 
 ## What "pass" does not cover
 
-- GitHub Actions run `38717228117` built and verified the jar against the real
-  1.7.10/Forge toolchain and uploaded it. The overall run was marked failed by
-  the 4 ms/column local timing guard measuring 5.871 ms/column on the hosted
-  runner; CI is now configured to report, not gate on, host-specific timing.
-  A confirming run is pending. An in-game smoke test is still required (create
-  a STRATA world, fly, check F3 biomes, `/locate Stronghold`, eyes of ender,
-  village/mineshaft presence, and logs).
+- GitHub Actions run `38718259143` passed the real Forge 1.7.10 build, jar
+  checks/upload, and all A–J regression suites. A previous hosted run measured
+  5.871 ms/column for cold sampling, above the 4 ms local-only budget; the
+  workflow now reports host-specific timing without gating the build. An
+  in-game smoke test is still required (create a STRATA world, fly, check F3
+  biomes, `/locate Stronghold`, eyes of ender, village/mineshaft presence, and
+  logs).
 - Gameplay balance (ore rates, river width, mountain frequency) is tuned
   by map inspection only; expect one balance pass after playtesting.
 - Performance H was measured on a 2-core sandbox JVM, not a gaming rig.
